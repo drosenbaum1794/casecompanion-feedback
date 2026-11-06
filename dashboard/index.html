@@ -152,6 +152,8 @@ tr.is-new td { background: color-mix(in srgb, var(--bar) 8%, transparent); }
 .filters-btn { font: inherit; font-size: 13px; border: 1px solid var(--bar); background: var(--surface); color: var(--link); border-radius: 6px;
   padding: 4px 12px; cursor: pointer; font-weight: 600; white-space: nowrap; }
 .filters-btn.active { background: var(--bar); color: #fff; }
+.clear-btn { font: inherit; font-size: 13px; background: none; border: 0; color: var(--link); text-decoration: underline; cursor: pointer; padding: 4px 2px; }
+.clear-btn:focus-visible { outline: 2px solid var(--bar); outline-offset: 2px; }
 .filters-btn:focus-visible { outline: 2px solid var(--bar); outline-offset: 2px; }
 .fdialog { width: min(680px, calc(100vw - 32px)); max-height: min(80vh, 720px); padding: 0; border: 1px solid var(--ring); border-radius: 12px;
   background: var(--surface); color: var(--ink); box-shadow: 0 12px 40px rgba(0,0,0,.25); }
@@ -339,6 +341,7 @@ tr.baseline td { font-weight: 650; background: var(--surface-2); }
         <button type="button" data-preset="review">Waiting for review</button>
       </span>
       <button type="button" class="filters-btn" id="ex-filters" aria-haspopup="dialog" aria-controls="ex-dialog">Filters</button>
+      <button type="button" class="clear-btn" id="ex-clear" hidden>Clear filters</button>
     </div>
     <dialog id="ex-dialog" class="fdialog" aria-labelledby="exd-title">
       <div class="fd-head"><h2 id="exd-title">Filters</h2><button type="button" class="fd-x" id="exd-close" aria-label="Close filters">&times;</button></div>
@@ -535,13 +538,17 @@ function drawFilterBar() {
   }) : [el('span', { class: 'small' }, 'None. Use Filters in Explore, or click a role or firm size in Segments.')]));
   const ignored = items.filter((f) => !applied(currentTab, f.key).ok).length;
   if (ignored) $('fb-chips').append(el('span', { class: 'small fb-note' }, `${ignored} not used on this tab (dimmed).`));
-  $('fb-clear').hidden = items.length < 2;
+  $('fb-clear').hidden = items.length === 0;
+  $('ex-clear').hidden = items.length === 0;
 }
-$('fb-clear').addEventListener('click', () => {
+// Both clear buttons remove every filter, including the text search.
+const clearAll = () => {
   for (const g of GROUP_KEYS) F[g].clear();
   F.q = ''; F.from = ''; F.to = '';
   filtersChanged();
-});
+};
+$('ex-clear').addEventListener('click', clearAll);
+$('fb-clear').addEventListener('click', clearAll);
 $('fb-copy').addEventListener('click', async () => {
   writeUrl();
   try { await navigator.clipboard.writeText(location.href); $('fb-copy').textContent = 'Link copied'; }

@@ -142,3 +142,7 @@ Dan found the in-table filter panels took too much room. Explore now has one **F
 ## 2026-11-06: Theme list stays out of the filters
 
 Dan found the theme list on Overview confusing once it was tied to filters. Clicking a theme set a theme filter, and the filter then shrank the list to that one theme. The list is now a fixed reference. It always shows every theme, and clicking it does nothing. It still follows the Complaints, All, and Praise toggle and the role and firm-size selects above it. To see a theme's rows, use Filters in Explore.
+
+## 2026-11-06: A clear option whenever a filter is on
+
+Clicking a segment set one filter, but "Clear all" only appeared at two or more, so the only way out was the small × on the chip. "Clear all" now shows whenever any filter is on. Explore also has a "Clear filters" link next to the Filters button. Both clear every filter and the text search.
