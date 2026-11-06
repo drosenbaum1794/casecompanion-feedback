@@ -1,14 +1,16 @@
 # Process write-up
 
-**Draft, Nov 6, 2026.** How this was scoped, prompted, evaluated, and tested. Details live in the linked logs; this page is the summary.
+Daniel Rosenbaum · Nov 8, 2026. How this was scoped, prompted, evaluated, and tested. Details live in the linked logs; this page is the summary.
 
 ## 1. How I scoped it
 
-*To fill in (Dan):* the design was reviewed as the engineer who maintains it, the CS director who decides from it, and the CS rep who feeds it, before any code. Two changes each review caused:
+Before any code, I reviewed the design as three people: the engineer who maintains it, the CS director who decides from it, and the CS rep who feeds it. For each, I asked what would make them stop using it. Each answer became a requirement:
 
-- Engineer: …
-- CS director: …
-- CS rep: …
+| Who | What would make them stop | What it changed in the build |
+| --- | --- | --- |
+| Engineer | Lost human edits, silent failures, runaway costs | The tagger writes only to a staging tab, and code fills only empty cells, so a person's edit always wins. Every sync logs to a Health tab, and failures email. Rows are fingerprinted so only changed rows sync. |
+| CS director | Undefined severity, no sample sizes, alerts going to nobody | A written severity rubric shown on the dashboard. Every count shows n, and anything under 10 rows says "directional". Sev1 alerts route by segment, plus an alert if the tagger itself stalls. |
+| CS rep | Slow review, guessing at tags, edits overwritten | One-click Confirm, an Unsure option, the tag definitions next to the dropdown, and a queue that puts Sev1s and flagged rows first. |
 
 ## 2. How I prompted
 
@@ -48,11 +50,15 @@ I stopped at v2 on purpose. The remaining misses were Mixed rows tagged Negative
 | Sign-in on dashboard and MCP | Mock data, and the read-only key can't see reviewer emails or write anything | Before real customer data: OAuth with an EvenUp allowlist |
 | Real account and CSM routing | The data has no account IDs | When the CRM join exists (Part 3, item 3) |
 | Slack app, multiple alert channels | One email path proves the alert logic | When alerts go to a team instead of one person |
-| Two-way sync, editing in the dashboard | One place to edit is what makes "never overwrite a human" provable | Probably never; link to the sheet instead |
+| A separate write path from the dashboard | Built late, but only through the sheet: the dashboard sends a decision to the sheet's script, which refuses it if the row changed since the page loaded, then syncs that row. Supabase still has one writer. | Already built; it needs sign-in before real data (Part 3) |
 
-## 5. Test results
+## 5. After it worked: making it usable
 
-Full table: `docs/test-results.md`. Every Blocker that has been run passes. Running the plan found four real bugs, all fixed and unit-tested where the logic is pure:
+Once the pipeline ran end to end, I had a separate agent review the dashboard as a reporting-dashboard designer, against concrete jobs for each audience (`docs/dashboard-ux-review.md`). Its top picks were built: a "Top issues to fix" list grouped by distinct issue, the Sev1 tab as proof of follow-up, filters shared across tabs and kept in the link, a "Do these first" review order, and CSV export. Using it myself then drove the last changes: confirming and fixing tags from the dashboard (written to the sheet, not around it), and cutting the save time by pushing only the edited row.
+
+## 6. Test results
+
+Full table: `docs/test-results.md`. Every Blocker that has been run passes. Two scenarios are open: test 20 (confirm in the sheet's version history that the tagging task only touched its staging tab) and test 19 (a 3-hour tagger stall), which I didn't run. Running the plan found four real bugs, all fixed and unit-tested where the logic is pure:
 
 1. A second, different failure email was suppressed by the first one's hourly throttle (test 11).
 2. Undoing a pasted typo left the row silently blocked from syncing (test 6).
