@@ -22,7 +22,7 @@
     --page: #0d0d0d; --surface: #1a1a19; --surface-2: #232321;
     --ink: #f0efec; --ink-2: #c3c2b7; --muted: #9a988f;
     --grid: #2c2c2a; --axis: #383835; --ring: rgba(255,255,255,0.10);
-    --bar: #3987e5; --bar-2: #1c5cab; --link: #86b6ef;
+    --bar: #3987e5; --bar-2: #104281; --link: #86b6ef;
     --good-ink: #0ca30c;
   }
 }
@@ -31,7 +31,7 @@
   --page: #0d0d0d; --surface: #1a1a19; --surface-2: #232321;
   --ink: #f0efec; --ink-2: #c3c2b7; --muted: #9a988f;
   --grid: #2c2c2a; --axis: #383835; --ring: rgba(255,255,255,0.10);
-  --bar: #3987e5; --bar-2: #1c5cab; --link: #86b6ef;
+  --bar: #3987e5; --bar-2: #104281; --link: #86b6ef;
   --good-ink: #0ca30c;
 }
 
@@ -168,6 +168,46 @@ input[type="date"] { font: inherit; font-size: 14px; padding: 4px 6px; border-ra
 footer { margin-top: 28px; font-size: 13px; color: var(--ink-2); }
 footer dl { display: grid; grid-template-columns: max-content 1fr; gap: 6px 12px; }
 footer dt { font-weight: 600; }
+/* ---------- shared filter bar ---------- */
+.filterbar { display: flex; flex-wrap: wrap; gap: 8px 10px; align-items: center; padding: 8px 12px; margin: 0 0 12px;
+  border: 1px solid var(--ring); border-radius: 8px; background: var(--surface); }
+.fb-label { font-size: 12px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .03em; }
+.fb-chips { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; flex: 1 1 260px; min-width: 0; }
+.fb-actions { display: flex; gap: 6px; margin-left: auto; }
+.fb-actions button, .csv, .presets button { font: inherit; font-size: 13px; border: 1px solid var(--axis); background: var(--surface);
+  color: var(--ink); border-radius: 6px; padding: 4px 10px; cursor: pointer; white-space: nowrap; }
+.chip-x.muted { border-style: dashed; border-color: var(--axis); background: none; color: var(--muted); text-decoration: line-through; }
+.fb-note { margin-left: 4px; }
+.cardhead { display: flex; flex-wrap: wrap; gap: 8px 12px; justify-content: space-between; align-items: baseline; }
+.cardhead .sub { flex: 1 1 300px; }
+.presets { display: inline-flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.linkbtn { font: inherit; background: none; border: 0; padding: 0; color: var(--link); cursor: pointer; text-align: left; text-decoration: underline;
+  text-decoration-color: color-mix(in srgb, var(--link) 35%, transparent); text-underline-offset: 2px; }
+.linkbtn:hover { text-decoration-color: currentColor; }
+.track.clickable { cursor: pointer; }
+.linkbtn:focus-visible, .fb-actions button:focus-visible, .csv:focus-visible, .presets button:focus-visible, .chip-x:focus-visible, summary:focus-visible { outline: 2px solid var(--bar); outline-offset: 2px; }
+details > summary { cursor: pointer; font-size: 14px; font-weight: 650; color: var(--ink-2); margin: 18px 0 8px; }
+details.reason > summary { font-size: 13px; font-weight: 500; color: var(--link); margin: 4px 0 0; }
+details.reason > div { font-size: 13px; color: var(--ink-2); margin-top: 4px; }
+.why { font-size: 13px; font-weight: 600; white-space: nowrap; }
+.why.sev1 { color: var(--critical); }
+/* ---------- segments ---------- */
+.segtable { table-layout: fixed; }
+tr.baseline td { font-weight: 650; background: var(--surface-2); }
+/* ---------- phones: tables become stacked cards ---------- */
+@media (max-width: 600px) {
+  .stack thead tr { display: flex; flex-wrap: wrap; gap: 4px 14px; }
+  .stack thead th { border: 0; padding: 4px 0; }
+  .stack thead th:not(:has(button)) { display: none; }
+  .stack tbody tr { display: block; border-bottom: 1px solid var(--grid); padding: 8px 0; }
+  .stack tbody td { display: block; border: 0; padding: 3px 0; min-width: 0; max-width: none; }
+  .stack tbody td[data-label]::before { content: attr(data-label); display: block; font-size: 11px; font-weight: 600; color: var(--muted);
+    text-transform: uppercase; letter-spacing: .03em; }
+  .stack tbody td.empty::before { content: none; }
+  .tablewrap:has(.stack) { overflow-x: visible; }
+  .steps { white-space: normal; }
+  .fb-actions { margin-left: 0; }
+}
 </style>
 </head>
 <body>
@@ -183,7 +223,13 @@ footer dt { font-weight: 600; }
   <div class="card" id="justin" hidden aria-live="polite">
     <h2>Just in</h2>
     <p class="sub" id="justin-sub"></p>
-    <div class="tablewrap"><table><thead><tr><th>Severity</th><th>Feedback</th><th>Tags</th><th>Pipeline</th><th></th></tr></thead><tbody id="justin-rows"></tbody></table></div>
+    <div class="tablewrap"><table class="stack"><thead><tr><th>Severity</th><th>Feedback</th><th>Tags</th><th>Pipeline</th><th></th></tr></thead><tbody id="justin-rows"></tbody></table></div>
+  </div>
+
+  <div class="filterbar" id="filterbar" aria-label="Active filters">
+    <span class="fb-label">Filters</span>
+    <span id="fb-chips" class="fb-chips"></span>
+    <span class="fb-actions"><button type="button" id="fb-clear" hidden>Clear all</button><button type="button" id="fb-copy">Copy link to this view</button></span>
   </div>
 
   <nav role="tablist" aria-label="Views">
@@ -197,13 +243,13 @@ footer dt { font-weight: 600; }
 
   <section role="tabpanel" id="overview" aria-labelledby="tab-overview">
     <div class="filters">
-      <div class="seg" role="group" aria-label="Sentiment">
-        <button data-s="Complaint" aria-pressed="true">Complaints</button>
-        <button data-s="" aria-pressed="false">All</button>
-        <button data-s="Positive" aria-pressed="false">Praise</button>
+      <div class="seg" role="group" aria-label="Sentiment" id="ov-seg">
+        <button type="button" data-s="Complaint" aria-pressed="false">Complaints</button>
+        <button type="button" data-s="" aria-pressed="false">All</button>
+        <button type="button" data-s="Positive" aria-pressed="false">Praise</button>
       </div>
-      <select id="ov-role" aria-label="Role"><option value="">All roles</option><option>attorney</option><option>paralegal</option><option value="case_manager">case manager</option></select>
-      <select id="ov-firm" aria-label="Firm size"><option value="">All firm sizes</option><option>small</option><option>medium</option><option>large</option></select>
+      <select id="ov-role" aria-label="Role"><option value="">All roles</option><option value="attorney">attorney</option><option value="paralegal">paralegal</option><option value="case_manager">case manager</option></select>
+      <select id="ov-firm" aria-label="Firm size"><option value="">All firm sizes</option><option value="small">small</option><option value="medium">medium</option><option value="large">large</option></select>
     </div>
     <div class="card">
       <h2 id="ti-title">Top issues to fix</h2>
@@ -219,7 +265,7 @@ footer dt { font-weight: 600; }
     <div class="card">
       <h2>Severity and sentiment</h2>
       <p class="sub">Mentions. Severity levels are defined <a href="#rubric">below</a>.</p>
-      <h3>Severity, for all the filters above</h3>
+      <h3>Severity, for the filters above</h3>
       <div id="ov-tiles" class="tiles"></div>
       <h3>Sentiment split, for the selected role and firm size</h3>
       <div id="ov-sent" class="tiles"></div>
@@ -228,50 +274,65 @@ footer dt { font-weight: 600; }
 
   <section role="tabpanel" id="sev1" aria-labelledby="tab-sev1" hidden>
     <div class="card">
-      <h2>Every Sev1, grouped by issue</h2>
+      <div class="cardhead"><h2>Every Sev1, grouped by issue</h2><button type="button" class="csv" id="sev1-csv">Download CSV</button></div>
       <p class="sub" id="sev1-n">Loading…</p>
       <div class="chips" id="sev1-chips" role="group" aria-label="Firm size"></div>
-      <div class="tablewrap"><table><thead><tr><th>Issue</th><th>Who reported it</th><th>Tag</th><th>Alert</th><th>Follow-up</th><th>Rows</th></tr></thead><tbody id="sev1-rows"></tbody></table></div>
+      <div class="tablewrap"><table class="stack"><thead><tr><th>Issue</th><th>Who reported it</th><th>Tag</th><th>Alert</th><th>Follow-up</th><th>Rows</th></tr></thead><tbody id="sev1-rows"></tbody></table></div>
     </div>
   </section>
 
   <section role="tabpanel" id="segments" aria-labelledby="tab-segments" hidden>
     <div class="card">
       <h2>Who is affected</h2>
-      <p class="sub">Share of each segment's feedback that is a complaint, and that is Sev1 or Sev2. The data has no account IDs or revenue, so firm size and usage stand in for account value.</p>
+      <p class="sub">Share of each segment's feedback that is a complaint, and that is Sev1 or Sev2, riskiest first, with all feedback as the baseline. Segments always shows all feedback, so filters don't apply here. Click a role or firm size to see its rows. The data has no account IDs or revenue, so firm size and usage stand in for account value.</p>
       <div id="seg-tables"></div>
     </div>
   </section>
 
   <section role="tabpanel" id="trend" aria-labelledby="tab-trend" hidden>
     <div class="filters">
+      <div class="seg" role="group" aria-label="Sentiment" id="tr-seg">
+        <button type="button" data-s="" aria-pressed="true">All</button>
+        <button type="button" data-s="Complaint" aria-pressed="false">Complaints</button>
+        <button type="button" data-s="Positive" aria-pressed="false">Praise</button>
+      </div>
       <select id="tr-theme" aria-label="Theme"><option value="">All themes</option></select>
       <select id="tr-area" aria-label="Product area"><option value="">All product areas</option></select>
     </div>
     <div class="card">
       <h2>Weekly mentions</h2>
-      <p class="sub" id="tr-n"></p>
+      <p class="sub" id="tr-n">Loading…</p>
       <div id="tr-chart"></div>
+      <p class="small" id="tr-note"></p>
     </div>
   </section>
 
   <section role="tabpanel" id="queue" aria-labelledby="tab-queue" hidden>
     <div class="card">
-      <h2 id="q-title">Review queue</h2>
-      <p class="sub">Pending and Unsure rows, lowest confidence first. Review happens in the sheet: open a row, then confirm or correct it there.</p>
-      <div class="tablewrap"><table><thead><tr><th>Confidence</th><th>Tag</th><th>Feedback</th><th>Why Claude tagged it</th><th>Waiting</th><th></th></tr></thead><tbody id="q-rows"></tbody></table></div>
+      <div class="cardhead"><h2 id="q-title">Review queue</h2><button type="button" class="csv" id="q-csv">Download CSV</button></div>
+      <p class="sub">Review happens in the sheet: open a row, then confirm or correct it there. Counts update after the next sheet sync, about 10 minutes.</p>
+      <h3 id="q-first-title">Do these first</h3>
+      <div class="tablewrap"><table class="stack"><thead><tr><th>Why first</th><th>Proposed tags</th><th>Feedback</th><th>Waiting</th><th></th></tr></thead><tbody id="q-first"></tbody></table></div>
+      <details id="q-rest-wrap">
+        <summary id="q-rest-title">Everything else</summary>
+        <div class="tablewrap"><table class="stack"><thead><tr><th>Confidence</th><th>Proposed tags</th><th>Feedback</th><th>Waiting</th><th></th></tr></thead><tbody id="q-rest"></tbody></table></div>
+      </details>
     </div>
   </section>
 
   <section role="tabpanel" id="explore" aria-labelledby="tab-explore" hidden>
     <div class="filters">
       <input type="search" id="ex-q" placeholder="Search feedback text" aria-label="Search feedback text">
+      <span class="presets" aria-label="Presets"><span class="small">Presets:</span>
+        <button type="button" data-preset="sev1">All Sev1s</button>
+        <button type="button" data-preset="wins">QBR wins: time saved</button>
+        <button type="button" data-preset="review">Waiting for review</button>
+      </span>
     </div>
     <div class="card">
-      <p class="sub" id="ex-n">Loading…</p>
-      <div class="chips" id="ex-chips" aria-label="Active filters"></div>
+      <div class="cardhead"><p class="sub" id="ex-n">Loading…</p><button type="button" class="csv" id="ex-csv">Download CSV</button></div>
       <div class="colpanel" id="ex-panel" hidden></div>
-      <div class="tablewrap"><table><thead><tr>
+      <div class="tablewrap"><table class="stack"><thead><tr>
         <th><button type="button" class="th-btn" data-col="date" aria-expanded="false" aria-controls="ex-panel">Date</button></th>
         <th>Feedback</th>
         <th><button type="button" class="th-btn" data-col="tags" aria-expanded="false" aria-controls="ex-panel">Tags</button></th>
@@ -280,7 +341,6 @@ footer dt { font-weight: 600; }
         <th></th></tr></thead><tbody id="ex-rows"></tbody></table></div>
     </div>
   </section>
-
   <footer>
     <h3 id="rubric">Severity levels</h3>
     <dl id="rubric-list"></dl>
@@ -346,7 +406,8 @@ const pct = (a, b) => b ? Math.round(100 * a / b) : 0;
 const plural = (n, word) => `${n} ${word}${Number(n) === 1 ? '' : 's'}`;
 const directional = (n) => n < CONFIG.SMALL ? ' Fewer than 10 rows: directional.' : '';
 function sevBadge(s) { return s ? el('a', { class: `sev ${s}`, href: '#rubric', title: 'Severity definition' }, s) : ''; }
-function openLink(id) { return el('a', { href: `${CONFIG.WEBAPP_URL}?id=${encodeURIComponent(id)}`, target: '_blank', rel: 'noopener' }, 'Open row'); }
+const rowUrl = (id) => `${CONFIG.WEBAPP_URL}?id=${encodeURIComponent(id)}`;
+function openLink(id) { return el('a', { href: rowUrl(id), target: '_blank', rel: 'noopener' }, 'Open row'); }
 function quote(text) { return el('q', {}, text || ''); }
 function who(r) { return `${(r.user_role || '').replace('_', ' ')}, ${r.firm_size || '?'} firm`; }
 function fail(target, e) { target.replaceChildren(el('p', { class: 'err' }, `Could not load: ${e.message}`)); }
@@ -356,10 +417,137 @@ const dateTime = (t) => new Date(t).toLocaleString('en-US', { month: 'short', da
 const listText = (xs) => (xs || []).filter(Boolean).map((x) => String(x).replace('_', ' ')).join(', ');
 function rowLinks(ids) {
   return ids.length === 1 ? [openLink(ids[0])]
-    : ids.flatMap((id, i) => [i ? ' · ' : '', el('a', { href: `${CONFIG.WEBAPP_URL}?id=${encodeURIComponent(id)}`, target: '_blank', rel: 'noopener' }, `Row ${i + 1}`)]);
+    : ids.flatMap((id, i) => [i ? ' · ' : '', el('a', { href: rowUrl(id), target: '_blank', rel: 'noopener' }, `Row ${i + 1}`)]);
 }
 function newBadge(r) { return isNew(r) ? el('span', { class: 'newb' }, 'New') : ''; }
 function rowAttrs(r) { return isNew(r) ? { class: 'is-new' } : {}; }
+function tagsCell(r) {
+  return [sevBadge(r.severity), r.severity ? ' ' : '', r.theme || 'Not tagged yet',
+    el('div', { class: 'small' }, [r.product_area, r.sentiment, r.confidence ? `${r.confidence} confidence` : ''].filter(Boolean).join(' · '))];
+}
+// On phones, tables become stacked cards; each cell shows its column name.
+function labelCells(tbody) {
+  const heads = [...tbody.closest('table').querySelectorAll('thead th')].map((th) => th.textContent.replace(/\s*\(\d+\)\s*$/, '').trim());
+  tbody.querySelectorAll('tr').forEach((tr) => [...tr.children].forEach((td, i) => { if (heads[i]) td.dataset.label = heads[i]; }));
+}
+
+// ---------- shared filters: one state for every tab, kept in the URL ----------
+// Several values in one group mean "any of these"; groups combine with "and".
+const GROUPS = {
+  sentiment: { label: 'Sentiment', get: (r) => r.sentiment || '', order: ['Positive', 'Negative', 'Mixed'] },
+  severity: { label: 'Severity', get: (r) => r.severity || '', order: ['Sev1', 'Sev2', 'Sev3', 'None'] },
+  theme: { label: 'Theme', get: (r) => r.theme || '' },
+  area: { label: 'Product area', get: (r) => r.product_area || '' },
+  role: { label: 'Role', get: (r) => r.user_role || '', order: ['attorney', 'paralegal', 'case_manager'] },
+  firm: { label: 'Firm size', get: (r) => r.firm_size || '', order: ['small', 'medium', 'large'] },
+  status: { label: 'Status', get: (r) => r.status || '', order: ['Pending', 'Unsure', 'Confirmed', 'Corrected', ''] },
+};
+const GROUP_KEYS = Object.keys(GROUPS);
+const F = { q: '', from: '', to: '', sort: 'desc' };
+for (const g of GROUP_KEYS) F[g] = new Set();
+const optLabel = (v) => (v === '' ? 'Not tagged yet' : String(v).replace('_', ' '));
+const TAB_NAMES = { overview: 'Overview', sev1: 'The Sev1 tab', segments: 'Segments', trend: 'Trend', queue: 'The review queue', explore: 'Explore' };
+// What each tab can apply. Overview and Trend call SQL functions that take one value per filter.
+const APPLIES = {
+  overview: ['sentiment', 'severity', 'theme', 'area', 'role', 'firm', 'from', 'to'],
+  sev1: ['sentiment', 'theme', 'area', 'role', 'firm', 'status', 'from', 'to', 'q'],
+  segments: [],
+  trend: ['sentiment', 'theme', 'area'],
+  queue: ['sentiment', 'severity', 'theme', 'area', 'role', 'firm', 'status', 'from', 'to', 'q'],
+  explore: [...GROUP_KEYS, 'from', 'to', 'q'],
+};
+const SINGLE_VALUE_TABS = new Set(['overview', 'trend']);
+const isComplaintSet = (s) => s.size === 2 && s.has('Negative') && s.has('Mixed');
+// The single value a one-value tab can pass to SQL, or undefined if it can't apply the group.
+function single(g) {
+  const s = F[g];
+  if (!s.size) return null;
+  if (g === 'sentiment' && isComplaintSet(s)) return 'Complaint';
+  return s.size === 1 ? [...s][0] : undefined;
+}
+function applied(tab, key) {
+  if (!APPLIES[tab].includes(key)) return { ok: false, why: `${TAB_NAMES[tab]} doesn't use this filter.` };
+  if (SINGLE_VALUE_TABS.has(tab) && GROUPS[key] && single(key) === undefined) {
+    return { ok: false, why: `${TAB_NAMES[tab]} uses one value per filter.` };
+  }
+  return { ok: true, why: '' };
+}
+// Client-side match for tabs that filter rows they already loaded (Sev1, queue, Explore).
+function matches(r, tab) {
+  const use = (k) => APPLIES[tab].includes(k);
+  const q = F.q.trim().toLowerCase();
+  return (!use('q') || !q || (r.feedback_text || '').toLowerCase().includes(q)) &&
+    GROUP_KEYS.every((g) => !use(g) || !F[g].size || F[g].has(GROUPS[g].get(r))) &&
+    (!use('from') || !F.from || r.feedback_date >= F.from) &&
+    (!use('to') || !F.to || r.feedback_date <= F.to);
+}
+function filtersToQuery() {
+  const p = new URLSearchParams();
+  for (const g of GROUP_KEYS) if (F[g].size) p.set(g, [...F[g]].map((v) => (v === '' ? '(none)' : v)).join(','));
+  if (F.q) p.set('q', F.q);
+  if (F.from) p.set('from', F.from);
+  if (F.to) p.set('to', F.to);
+  if (F.sort !== 'desc') p.set('sort', F.sort);
+  return p.toString();
+}
+function queryToFilters(qs) {
+  const p = new URLSearchParams(qs || '');
+  for (const g of GROUP_KEYS) F[g] = new Set((p.get(g) || '').split(',').filter(Boolean).map((v) => (v === '(none)' ? '' : v)));
+  F.q = p.get('q') || '';
+  F.from = /^\d{4}-\d{2}-\d{2}$/.test(p.get('from') || '') ? p.get('from') : '';
+  F.to = /^\d{4}-\d{2}-\d{2}$/.test(p.get('to') || '') ? p.get('to') : '';
+  F.sort = p.get('sort') === 'asc' ? 'asc' : 'desc';
+}
+function writeUrl() {
+  const qs = filtersToQuery();
+  history.replaceState(null, '', `${location.pathname}${location.search}#${currentTab}${qs ? `?${qs}` : ''}`);
+}
+function activeFilters() {
+  const out = [];
+  for (const g of GROUP_KEYS) for (const v of F[g]) out.push({ key: g, label: `${GROUPS[g].label}: ${optLabel(v)}`, remove: () => F[g].delete(v) });
+  if (F.q) out.push({ key: 'q', label: `Text: "${F.q}"`, remove: () => { F.q = ''; } });
+  if (F.from) out.push({ key: 'from', label: `From: ${fmtDate(F.from)}`, remove: () => { F.from = ''; } });
+  if (F.to) out.push({ key: 'to', label: `To: ${fmtDate(F.to)}`, remove: () => { F.to = ''; } });
+  return out;
+}
+function drawFilterBar() {
+  const items = activeFilters();
+  $('fb-chips').replaceChildren(...(items.length ? items.map((f) => {
+    const a = applied(currentTab, f.key);
+    const b = el('button', { type: 'button', class: `chip-x${a.ok ? '' : ' muted'}`, title: a.ok ? 'Remove this filter' : `${a.why} Click to remove.`,
+      'aria-label': `Remove filter ${f.label}${a.ok ? '' : `. ${a.why}`}` }, f.label);
+    b.addEventListener('click', () => { f.remove(); filtersChanged(); });
+    return b;
+  }) : [el('span', { class: 'small' }, 'None. Click a theme, a segment, or a column title in Explore to filter.')]));
+  const ignored = items.filter((f) => !applied(currentTab, f.key).ok).length;
+  if (ignored) $('fb-chips').append(el('span', { class: 'small fb-note' }, `${ignored} not used on this tab (dimmed).`));
+  $('fb-clear').hidden = items.length < 2;
+}
+$('fb-clear').addEventListener('click', () => {
+  for (const g of GROUP_KEYS) F[g].clear();
+  F.q = ''; F.from = ''; F.to = '';
+  filtersChanged();
+});
+$('fb-copy').addEventListener('click', async () => {
+  writeUrl();
+  try { await navigator.clipboard.writeText(location.href); $('fb-copy').textContent = 'Link copied'; }
+  catch { $('fb-copy').textContent = 'Copy the address bar'; }
+  setTimeout(() => { $('fb-copy').textContent = 'Copy link to this view'; }, 2500);
+});
+const drawers = { overview: loadOverview, sev1: drawSev1, segments: () => {}, trend: drawTrend, queue: drawQueue, explore: drawExplore };
+function filtersChanged() {
+  // Other tabs redraw from the shared state when opened next.
+  loaded.clear(); loaded.add(currentTab);
+  writeUrl(); syncControls(); drawFilterBar();
+  if (dataReady[currentTab]()) drawers[currentTab]();
+}
+// Go to a tab with some filters replaced.
+function go(tab, set = {}) {
+  for (const [g, vals] of Object.entries(set)) F[g] = new Set(vals);
+  loaded.clear();
+  show(tab);
+  syncControls(); drawFilterBar();
+}
 
 // ---------- tabs ----------
 const tabs = [...document.querySelectorAll('[role="tab"]')];
@@ -374,8 +562,8 @@ function show(id) {
     t.tabIndex = on ? 0 : -1;
     $(t.getAttribute('aria-controls')).hidden = !on;
   }
+  writeUrl(); syncControls(); drawFilterBar();
   if (!loaded.has(id)) { loaded.add(id); loaders[id](); }
-  history.replaceState(null, '', `#${id}`);
 }
 tabs.forEach((t, i) => {
   t.addEventListener('click', () => show(t.getAttribute('aria-controls')));
@@ -384,11 +572,50 @@ tabs.forEach((t, i) => {
     if (d) { const n = tabs[(i + d + tabs.length) % tabs.length]; n.focus(); n.click(); }
   });
 });
+// Keep each tab's own controls in step with the shared filters.
+function syncControls() {
+  const sent = single('sentiment');
+  const segVal = sent === null ? '' : sent === 'Complaint' || sent === 'Positive' ? sent : undefined;
+  for (const id of ['ov-seg', 'tr-seg']) {
+    document.querySelectorAll(`#${id} button`).forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.s === segVal)));
+  }
+  const setSel = (id, g) => { const v = single(g); $(id).value = typeof v === 'string' && [...$(id).options].some((o) => o.value === v) ? v : ''; };
+  setSel('ov-role', 'role'); setSel('ov-firm', 'firm'); setSel('tr-theme', 'theme'); setSel('tr-area', 'area');
+  if ($('ex-q').value !== F.q) $('ex-q').value = F.q;
+}
+const SENT_SETS = { '': [], Complaint: ['Negative', 'Mixed'], Positive: ['Positive'] };
+for (const id of ['ov-seg', 'tr-seg']) {
+  document.querySelectorAll(`#${id} button`).forEach((b) => b.addEventListener('click', () => {
+    F.sentiment = new Set(SENT_SETS[b.dataset.s]); filtersChanged();
+  }));
+}
+const bindSelect = (id, g) => $(id).addEventListener('change', () => { F[g] = new Set($(id).value ? [$(id).value] : []); filtersChanged(); });
+bindSelect('ov-role', 'role'); bindSelect('ov-firm', 'firm'); bindSelect('tr-theme', 'theme'); bindSelect('tr-area', 'area');
+
+// ---------- CSV export ----------
+// Cells that start with = + - @ are prefixed with ' so a spreadsheet won't run them as formulas.
+const CSV_COLS = ['fb_id', 'feedback_date', 'channel', 'user_role', 'firm_size', 'sentiment', 'theme', 'product_area',
+  'severity', 'confidence', 'status', 'follow_up_status', 'feedback_text', 'claude_reason'];
+function csvCell(v) {
+  let s = v == null ? '' : String(v);
+  if (/^[=+\-@\t\r]/.test(s)) s = `'${s}`;
+  return /[",\r\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+}
+function downloadCsv(name, rows) {
+  const lines = [[...CSV_COLS, 'open_row_link'].join(',')]
+    .concat(rows.map((r) => [...CSV_COLS.map((c) => csvCell(r[c])), csvCell(rowUrl(r.fb_id))].join(',')));
+  const blob = new Blob([`﻿${lines.join('\r\n')}\r\n`], { type: 'text/csv;charset=utf-8' });
+  const a = el('a', { href: URL.createObjectURL(blob), download: `casecompanion-${name}-${new Date().toISOString().slice(0, 10)}.csv` });
+  document.body.append(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+}
 
 // ---------- header: health, sample, trust ----------
+let dataTo = null;
 async function loadHeader() {
   try {
     const h = await rpc('health');
+    dataTo = h.date_range?.to || null;
     const last = h.last_success_at ? new Date(h.last_success_at) : null;
     const mins = last ? Math.round((Date.now() - last) / 60000) : Infinity;
     const failing = h.last_run && h.last_run.result === 'ERROR';
@@ -412,40 +639,47 @@ async function loadHeader() {
 }
 
 // ---------- overview ----------
-let ovSentiment = 'Complaint';
-document.querySelectorAll('#overview .seg button').forEach((b) => b.addEventListener('click', () => {
-  document.querySelectorAll('#overview .seg button').forEach((x) => x.setAttribute('aria-pressed', String(x === b)));
-  ovSentiment = b.dataset.s; loadOverview();
-}));
-$('ov-role').addEventListener('change', loadOverview);
-$('ov-firm').addEventListener('change', loadOverview);
+function overviewParams() {
+  const v = (g) => { const s = single(g); return typeof s === 'string' ? s : null; };
+  return {
+    p_role: v('role'), p_firm_size: v('firm'), p_product_area: v('area'), p_severity: v('severity'),
+    p_from: F.from || null, p_to: F.to || null,
+  };
+}
 async function loadOverview() {
-  const f = { p_role: $('ov-role').value || null, p_firm_size: $('ov-firm').value || null };
+  const f = overviewParams();
+  const sent = single('sentiment');
+  const pSent = typeof sent === 'string' ? sent : null;
+  const theme = single('theme');
+  const pTheme = typeof theme === 'string' ? theme : null;
   try {
     const [rows, pos, neg, mix, top] = await Promise.all([
-      rpc('theme_summary', { ...f, p_sentiment: ovSentiment || null }),
-      rpc('theme_summary', { ...f, p_sentiment: 'Positive' }),
-      rpc('theme_summary', { ...f, p_sentiment: 'Negative' }),
-      rpc('theme_summary', { ...f, p_sentiment: 'Mixed' }),
-      rpc('top_issues', { ...f, p_sentiment: ovSentiment || null, p_limit: 8 }),
+      rpc('theme_summary', { ...f, p_sentiment: pSent }),
+      rpc('theme_summary', { ...f, p_severity: null, p_sentiment: 'Positive' }),
+      rpc('theme_summary', { ...f, p_severity: null, p_sentiment: 'Negative' }),
+      rpc('theme_summary', { ...f, p_severity: null, p_sentiment: 'Mixed' }),
+      rpc('top_issues', { ...f, p_sentiment: pSent, p_theme: pTheme, p_limit: 8 }),
     ]);
-    drawTopIssues(top);
+    drawTopIssues(top, pSent);
+    const shown = pTheme ? rows.filter((r) => r.theme === pTheme) : rows;
     const n = rows[0]?.sample_size || 0;
     $('ov-n').textContent = n
-      ? `n = ${n} mentions, ${fmtDate(rows[0].date_from)} to ${fmtDate(rows[0].date_to)}. Issue counts are per theme.${directional(n)}`
+      ? `n = ${plural(n, 'mention')}, ${fmtDate(rows[0].date_from)} to ${fmtDate(rows[0].date_to)}. Issue counts are per theme. Click a theme to see its rows.${directional(n)}`
       : 'No rows match these filters.';
-    const max = Math.max(1, ...rows.map((r) => Number(r.mentions)));
-    $('ov-themes').replaceChildren(...rows.flatMap((r) => {
-      const tip = `${r.theme}: ${r.distinct_issues} distinct issues, ${r.mentions} mentions (Sev1 ${r.sev1}, Sev2 ${r.sev2}, Sev3 ${r.sev3})`;
-      return [
-        el('div', { class: 'label' }, r.theme),
-        el('div', { class: 'track', title: tip, role: 'img', 'aria-label': tip },
-          el('div', { class: 'bar ghost', style: `width:${100 * r.mentions / max}%` }),
-          el('div', { class: 'bar', style: `width:${100 * r.distinct_issues / max}%` })),
-        el('div', { class: 'val num' }, `${plural(r.distinct_issues, 'issue')} · ${plural(r.mentions, 'mention')}`, Number(r.sev1) ? ' ' : '', Number(r.sev1) ? sevBadge('Sev1') : '', Number(r.sev1) ? ` ${r.sev1}` : ''),
-      ];
+    const max = Math.max(1, ...shown.map((r) => Number(r.mentions)));
+    $('ov-themes').replaceChildren(...shown.flatMap((r) => {
+      const tip = `${r.theme}: ${plural(r.distinct_issues, 'distinct issue')}, ${plural(r.mentions, 'mention')} (Sev1 ${r.sev1}, Sev2 ${r.sev2}, Sev3 ${r.sev3}). Click to see these rows.`;
+      const open = () => go('explore', { theme: [r.theme] });
+      const label = el('button', { type: 'button', class: 'linkbtn label', title: tip }, r.theme);
+      label.addEventListener('click', open);
+      const track = el('div', { class: 'track clickable', title: tip, 'aria-hidden': 'true' },
+        el('div', { class: 'bar ghost', style: `width:${100 * r.mentions / max}%` }),
+        el('div', { class: 'bar', style: `width:${100 * r.distinct_issues / max}%` }));
+      track.addEventListener('click', open);
+      return [label, track,
+        el('div', { class: 'val num' }, `${plural(r.distinct_issues, 'issue')} · ${plural(r.mentions, 'mention')}`, Number(r.sev1) ? ' ' : '', Number(r.sev1) ? sevBadge('Sev1') : '', Number(r.sev1) ? ` ${r.sev1}` : '')];
     }));
-    const sum = (k) => rows.reduce((s, r) => s + Number(r[k]), 0);
+    const sum = (k) => shown.reduce((s, r) => s + Number(r[k]), 0);
     const tile = (k, v, badge) => el('div', { class: 'tile' }, el('div', { class: 'k' }, badge || k), el('div', { class: 'v num' }, v));
     const size = (x) => x[0]?.sample_size || 0;
     $('ov-tiles').replaceChildren(
@@ -454,10 +688,9 @@ async function loadOverview() {
     $('ov-sent').replaceChildren(tile('Positive', size(pos)), tile('Negative', size(neg)), tile('Mixed', size(mix)));
   } catch (e) { fail($('ov-themes'), e); }
 }
-
-function drawTopIssues(top) {
-  const praise = ovSentiment === 'Positive';
-  $('ti-title').textContent = praise ? 'Most repeated praise' : ovSentiment === 'Complaint' ? 'Top issues to fix' : 'Top issues and praise';
+function drawTopIssues(top, pSent) {
+  const praise = pSent === 'Positive';
+  $('ti-title').textContent = praise ? 'Most repeated praise' : pSent === 'Complaint' ? 'Top issues to fix' : 'Top issues and praise';
   const n = top[0]?.sample_size || 0;
   const total = top[0]?.total_issues || 0;
   $('ti-n').textContent = n
@@ -476,8 +709,8 @@ function drawTopIssues(top) {
 // ---------- Sev1 ----------
 const COLS = 'fb_id,feedback_date,channel,feedback_text,user_role,firm_size,months_subscribed,monthly_queries,sentiment,theme,product_area,severity,confidence,claude_reason,status,follow_up,follow_up_status,ticket_link,injection_suspected,issue_id,tagged_at,alerted_at,created_at';
 const NOT_ARCHIVED = 'or=(status.is.null,status.neq.Archived)';
-let sev1Rows = [];
-let sev1Firm = '';
+let sev1Rows = null;
+let sev1Shown = [];
 const FOLLOW_RANK = { 'None yet': 0, 'Callback needed': 1, Open: 2, Contacted: 3, Resolved: 4 };
 const followUp = (r) => r.follow_up_status || (r.follow_up ? 'Callback needed' : 'None yet');
 async function loadSev1() {
@@ -487,13 +720,17 @@ async function loadSev1() {
   } catch (e) { fail($('sev1-rows'), e); }
 }
 function drawSev1() {
-  const count = (f) => sev1Rows.filter((r) => !f || r.firm_size === f).length;
+  // Firm chips count the Sev1s that match every other filter.
+  const firmFree = sev1Rows.filter((r) => { const keep = F.firm; F.firm = new Set(); const ok = matches(r, 'sev1'); F.firm = keep; return ok; });
+  const current = F.firm.size === 1 ? [...F.firm][0] : F.firm.size ? null : '';
   $('sev1-chips').replaceChildren(...['', 'large', 'medium', 'small'].map((f) => {
-    const b = el('button', { type: 'button', 'aria-pressed': String(f === sev1Firm) }, `${f ? f[0].toUpperCase() + f.slice(1) : 'All'} (${count(f)})`);
-    b.addEventListener('click', () => { sev1Firm = f; drawSev1(); });
+    const n = firmFree.filter((r) => !f || r.firm_size === f).length;
+    const b = el('button', { type: 'button', 'aria-pressed': String(f === current) }, `${f ? f[0].toUpperCase() + f.slice(1) : 'All'} (${n})`);
+    b.addEventListener('click', () => { F.firm = new Set(f ? [f] : []); filtersChanged(); });
     return b;
   }));
-  const rows = sev1Rows.filter((r) => !sev1Firm || r.firm_size === sev1Firm);
+  const rows = sev1Rows.filter((r) => matches(r, 'sev1'));
+  sev1Shown = rows;
   const groups = new Map();
   for (const r of rows) {
     const k = r.issue_id || r.fb_id;
@@ -502,9 +739,10 @@ function drawSev1() {
   }
   const worstFollow = (g) => g.map(followUp).sort((a, b) => (FOLLOW_RANK[a] ?? 0) - (FOLLOW_RANK[b] ?? 0))[0];
   const unresolved = [...groups.values()].filter((g) => worstFollow(g) !== 'Resolved').length;
+  const filtered = rows.length !== sev1Rows.length;
   $('sev1-n').textContent = rows.length
-    ? `n = ${plural(rows.length, 'report')}, ${plural(groups.size, 'distinct issue')}${sev1Firm ? ` at ${sev1Firm} firms` : ''}. ${unresolved} without a resolved follow-up. Each report emailed the routed CSM once.`
-    : `No Sev1 reports${sev1Firm ? ` at ${sev1Firm} firms` : ''}.`;
+    ? `n = ${plural(rows.length, 'report')}, ${plural(groups.size, 'distinct issue')}${filtered ? ` (of ${sev1Rows.length} Sev1 reports, after filters)` : ''}. ${unresolved} without a resolved follow-up. Each report emailed the routed CSM once.`
+    : 'No Sev1 reports match these filters.';
   $('sev1-rows').replaceChildren(...[...groups.values()].map((g) => {
     const newest = g[0];
     const alerts = g.map((r) => r.alerted_at).filter(Boolean).sort();
@@ -523,125 +761,180 @@ function drawSev1() {
         ...g.filter((r) => r.ticket_link && /^https?:\/\//.test(r.ticket_link)).map((r) => el('div', {}, el('a', { href: r.ticket_link, target: '_blank', rel: 'noopener' }, 'Ticket')))),
       el('td', {}, ...rowLinks(g.map((r) => r.fb_id))));
   }));
-  if (!rows.length) $('sev1-rows').replaceChildren(el('tr', {}, el('td', { colspan: 6, class: 'empty' }, 'No Sev1 feedback matches.')));
+  if (!rows.length) $('sev1-rows').replaceChildren(el('tr', {}, el('td', { colspan: 6, class: 'empty' }, 'No Sev1 feedback matches these filters.')));
+  labelCells($('sev1-rows'));
 }
+$('sev1-csv').addEventListener('click', () => downloadCsv('sev1', sev1Shown));
 
-// ---------- segments ----------
+// ---------- segments: always all feedback, the baseline ----------
 async function loadSegments() {
   try {
     const rows = await rpc('segment_summary');
     const names = { role: 'By role', firm_size: 'By firm size', usage: 'By usage' };
+    const filterKey = { role: 'role', firm_size: 'firm' };
+    const head = () => el('thead', {}, el('tr', {}, el('th', {}, 'Segment'), el('th', {}, 'Rows'), el('th', {}, 'Complaints'), el('th', {}, 'Sev1 or Sev2'), el('th', {}, 'Sev1')));
+    const cols = () => el('colgroup', {}, ...['34%', '12%', '20%', '20%', '14%'].map((w) => el('col', { style: `width:${w}` })));
+    const line = (label, r, cls) => el('tr', cls ? { class: cls } : {},
+      el('td', {}, label),
+      el('td', { class: 'num' }, `${r.rows_n}${r.rows_n < CONFIG.SMALL ? ' (directional)' : ''}`),
+      el('td', { class: 'num' }, `${pct(r.complaints, r.rows_n)}% (${r.complaints})`),
+      el('td', { class: 'num' }, `${pct(r.sev1_or_sev2, r.rows_n)}% (${r.sev1_or_sev2})`),
+      el('td', { class: 'num' }, r.sev1));
     $('seg-tables').replaceChildren(...['role', 'firm_size', 'usage'].map((dim) => {
-      const part = rows.filter((r) => r.dimension === dim);
-      return el('div', {}, el('h3', {}, names[dim]), el('div', { class: 'tablewrap' }, el('table', {},
-        el('thead', {}, el('tr', {}, el('th', {}, 'Segment'), el('th', {}, 'Rows'), el('th', {}, 'Complaints'), el('th', {}, 'Sev1 or Sev2'), el('th', {}, 'Sev1'))),
-        el('tbody', {}, ...part.map((r) => el('tr', {},
-          el('td', {}, String(r.segment).replace('_', ' ')),
-          el('td', { class: 'num' }, `${r.rows_n}${r.rows_n < CONFIG.SMALL ? ' (directional)' : ''}`),
-          el('td', { class: 'num' }, `${pct(r.complaints, r.rows_n)}% (${r.complaints})`),
-          el('td', { class: 'num' }, `${pct(r.sev1_or_sev2, r.rows_n)}% (${r.sev1_or_sev2})`),
-          el('td', { class: 'num' }, r.sev1)))))));
+      const part = rows.filter((r) => r.dimension === dim)
+        .sort((a, b) => b.sev1_or_sev2 / b.rows_n - a.sev1_or_sev2 / a.rows_n);
+      // Every row falls in exactly one segment of a dimension, so the SQL counts sum to the total.
+      const base = part.reduce((t, r) => ({ rows_n: t.rows_n + Number(r.rows_n), complaints: t.complaints + Number(r.complaints),
+        sev1_or_sev2: t.sev1_or_sev2 + Number(r.sev1_or_sev2), sev1: t.sev1 + Number(r.sev1) }), { rows_n: 0, complaints: 0, sev1_or_sev2: 0, sev1: 0 });
+      const body = el('tbody', {}, line('All feedback (baseline)', base, 'baseline'), ...part.map((r) => {
+        const name = String(r.segment).replace('_', ' ');
+        const key = filterKey[dim];
+        let label = name;
+        if (key) {
+          label = el('button', { type: 'button', class: 'linkbtn', title: `See ${name} rows in Explore` }, name);
+          label.addEventListener('click', () => go('explore', { [key]: [r.segment] }));
+        }
+        return line(label, r);
+      }));
+      const table = el('table', { class: 'segtable' }, cols(), head(), body);
+      labelCells(body);
+      return el('div', {}, el('h3', {}, names[dim]), el('div', { class: 'tablewrap' }, table));
     }));
   } catch (e) { fail($('seg-tables'), e); }
 }
 
 // ---------- trend ----------
-$('tr-theme').addEventListener('change', drawTrend);
-$('tr-area').addEventListener('change', drawTrend);
-async function loadTrend() { await fillTaxonomySelects(); drawTrend(); }
+async function loadTrend() { await fillTaxonomySelects(); syncControls(); drawTrend(); }
 async function drawTrend() {
   try {
-    const rows = await rpc('theme_trend', { p_theme: $('tr-theme').value || null, p_product_area: $('tr-area').value || null, p_weeks: 10 });
+    const one = (g) => { const s = single(g); return typeof s === 'string' ? s : null; };
+    const pSent = one('sentiment');
+    const rows = await rpc('theme_trend', { p_theme: one('theme'), p_product_area: one('area'), p_weeks: 10, p_sentiment: pSent });
     const total = rows.reduce((s, r) => s + Number(r.mentions), 0);
-    $('tr-n').textContent = `n = ${total} mentions over ${rows.length} weeks, ending the week of the latest feedback (${fmtDate(rows.at(-1)?.week_start)}).${directional(total)}`;
-    const W = 640, H = 200, padL = 28, padB = 26, padT = 10;
+    const asOf = rows.at(-1)?.as_of || dataTo;
+    const lastStart = rows.at(-1)?.week_start;
+    const daysInLast = asOf && lastStart ? Math.round((new Date(`${asOf}T12:00:00`) - new Date(`${lastStart}T12:00:00`)) / 86400000) + 1 : 7;
+    const partial = daysInLast < 7;
+    const what = pSent === 'Complaint' ? 'complaints' : pSent === 'Positive' ? 'praise mentions' : 'mentions';
+    $('tr-n').textContent = `n = ${total} ${what} over ${rows.length} weeks, ending the week of the latest feedback (${fmtDate(lastStart)}).${directional(total)}`;
+    $('tr-note').textContent = partial
+      ? `The last week is partial: the data runs through ${fmtDate(asOf)}, ${plural(daysInLast, 'day')} into that week, so its bar is a different shade. Don't read it as a drop.`
+      : '';
+    const box = $('tr-chart');
+    const W = Math.max(300, Math.min(900, box.clientWidth || 640));
+    const H = 220, padL = 30, padB = 28, padT = 10;
     const max = Math.max(1, ...rows.map((r) => Number(r.mentions)));
     const step = (W - padL) / Math.max(rows.length, 1);
-    const bw = Math.max(6, Math.min(36, step - 8));
+    const bw = Math.max(6, Math.min(40, step - 8));
     const y = (v) => padT + (H - padT - padB) * (1 - v / max);
     const ns = 'http://www.w3.org/2000/svg';
     const svg = document.createElementNS(ns, 'svg');
     svg.setAttribute('viewBox', `0 0 ${W} ${H}`); svg.setAttribute('width', '100%'); svg.setAttribute('role', 'img');
-    svg.setAttribute('aria-label', `Weekly mentions: ${rows.map((r) => `${r.week_start} ${r.mentions}`).join(', ')}`);
+    svg.setAttribute('aria-label', `Weekly ${what}: ${rows.map((r) => `week of ${r.week_start}, ${r.mentions}`).join('; ')}${partial ? '. The last week is partial.' : ''}`);
     const add = (tag, attrs, text) => { const n = document.createElementNS(ns, tag); for (const [k, v] of Object.entries(attrs)) n.setAttribute(k, v); if (text != null) n.textContent = text; svg.append(n); return n; };
-    for (const t of [0, Math.ceil(max / 2), max]) {
+    for (const t of [...new Set([0, Math.ceil(max / 2), max])]) {
       add('line', { x1: padL, x2: W, y1: y(t), y2: y(t), stroke: 'var(--grid)', 'stroke-width': 1 });
       add('text', { x: padL - 6, y: y(t) + 4, 'text-anchor': 'end' }, t);
     }
+    const every = W < 520 ? 3 : 2;
     rows.forEach((r, i) => {
       const x = padL + i * step + (step - bw) / 2;
       const v = Number(r.mentions);
+      const isPartial = partial && i === rows.length - 1;
       const g = document.createElementNS(ns, 'g');
       const hit = document.createElementNS(ns, 'rect');
       Object.entries({ x: padL + i * step, y: padT, width: step, height: H - padT - padB, fill: 'transparent' }).forEach(([k, val]) => hit.setAttribute(k, val));
       const bar = document.createElementNS(ns, 'path');
       const top = y(v), base = y(0), rr = Math.min(4, bw / 2, base - top);
       bar.setAttribute('d', v ? `M${x},${base} V${top + rr} Q${x},${top} ${x + rr},${top} H${x + bw - rr} Q${x + bw},${top} ${x + bw},${top + rr} V${base} Z` : `M${x},${base} H${x + bw}`);
-      bar.setAttribute('fill', 'var(--bar)'); bar.setAttribute('stroke', v ? 'none' : 'var(--axis)');
+      bar.setAttribute('fill', isPartial ? 'var(--bar-2)' : 'var(--bar)'); bar.setAttribute('stroke', v ? 'none' : 'var(--axis)');
       const title = document.createElementNS(ns, 'title');
-      title.textContent = `Week of ${fmtDate(r.week_start)}: ${v} mentions, ${r.distinct_issues} distinct issues`;
+      title.textContent = `Week of ${fmtDate(r.week_start)}: ${plural(v, what === 'complaints' ? 'complaint' : 'mention')}, ${plural(r.distinct_issues, 'distinct issue')}${isPartial ? ` (partial week, ${plural(daysInLast, 'day')})` : ''}`;
       g.append(title, hit, bar); svg.append(g);
-      if (i % 2 === 0 || rows.length <= 6) add('text', { x: x + bw / 2, y: H - 8, 'text-anchor': 'middle' }, new Date(r.week_start + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' }));
+      const nearPartial = partial && i >= rows.length - (W < 520 ? 3 : 2) && !isPartial;
+      if ((i % every === 0 && !nearPartial) || isPartial) {
+        const d = new Date(`${r.week_start}T12:00:00`).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+        // The partial label is right-aligned so it never runs off the chart edge.
+        if (isPartial) add('text', { x: Math.min(W - 2, x + bw), y: H - 8, 'text-anchor': 'end' }, `${d} (partial)`);
+        else add('text', { x: x + bw / 2, y: H - 8, 'text-anchor': 'middle' }, d);
+      }
     });
     add('line', { x1: padL, x2: W, y1: y(0), y2: y(0), stroke: 'var(--axis)', 'stroke-width': 1 });
-    $('tr-chart').replaceChildren(svg);
+    box.replaceChildren(svg);
   } catch (e) { fail($('tr-chart'), e); }
 }
 
-// ---------- review queue ----------
+// ---------- review queue: "Do these first", then everything else ----------
+let queueRows = null;
+let queueShown = [];
 async function loadQueue() {
   try {
-    const rows = await rpc('review_queue');
-    $('q-title').textContent = `Review queue: ${rows.length} left`;
-    $('q-rows').replaceChildren(...rows.slice(0, 200).map((r) => el('tr', rowAttrs(r),
-      el('td', {}, newBadge(r), r.confidence || '', r.status === 'Unsure' ? el('div', { class: 'small' }, 'Unsure') : ''),
-      el('td', {}, sevBadge(r.severity), el('div', { class: 'small' }, r.theme)),
-      el('td', { class: 'quote' }, quote(r.feedback_text), r.injection_suspected ? el('div', { class: 'flag' }, 'Possible prompt injection: review by hand') : ''),
-      el('td', { class: 'small' }, r.claude_reason || ''),
-      el('td', { class: 'num' }, `${r.days_waiting} d`),
-      el('td', {}, openLink(r.fb_id)))));
-    if (!rows.length) $('q-rows').replaceChildren(el('tr', {}, el('td', { colspan: 6, class: 'empty' }, 'Queue is empty.')));
-  } catch (e) { fail($('q-rows'), e); }
+    queueRows = await rpc('review_queue');
+    drawQueue();
+  } catch (e) { fail($('q-first'), e); }
 }
+function queueRow(r, firstCol) {
+  return el('tr', rowAttrs(r),
+    el('td', {}, newBadge(r), firstCol),
+    el('td', {}, ...tagsCell(r)),
+    el('td', { class: 'quote' }, quote(r.feedback_text), el('div', { class: 'small' }, `${who(r)} · ${fmtDate(r.feedback_date)}`),
+      r.injection_suspected ? el('div', { class: 'flag' }, 'Possible prompt injection: review by hand') : '',
+      r.claude_reason ? el('details', { class: 'reason' }, el('summary', {}, 'Why Claude tagged it'), el('div', {}, r.claude_reason)) : ''),
+    el('td', { class: 'num' }, r.days_waiting < 1 ? 'today' : plural(r.days_waiting, 'day')),
+    el('td', {}, openLink(r.fb_id)));
+}
+function drawQueue() {
+  const rows = queueRows.filter((r) => matches(r, 'queue'));
+  queueShown = rows;
+  const first = rows.filter((r) => r.priority);
+  const rest = rows.filter((r) => !r.priority);
+  const filtered = rows.length !== queueRows.length;
+  $('q-title').textContent = `Review queue: ${rows.length} left${filtered ? ` (of ${queueRows.length}, after filters)` : ''}`;
+  $('q-first-title').textContent = `Do these first (${first.length})`;
+  $('q-first').replaceChildren(...first.map((r) => queueRow(r, el('span', { class: `why ${r.priority === 'Sev1' ? 'sev1' : ''}` }, r.priority))));
+  if (!first.length) $('q-first').replaceChildren(el('tr', {}, el('td', { colspan: 5, class: 'empty' }, 'Nothing urgent: no Sev1, flagged, Unsure, or Low-confidence rows match.')));
+  $('q-rest-title').textContent = `Everything else (${rest.length})`;
+  $('q-rest').replaceChildren(...rest.slice(0, 200).map((r) => queueRow(r, r.confidence || '')));
+  if (!rest.length) $('q-rest').replaceChildren(el('tr', {}, el('td', { colspan: 5, class: 'empty' }, 'Nothing else waiting.')));
+  labelCells($('q-first')); labelCells($('q-rest'));
+}
+$('q-csv').addEventListener('click', () => downloadCsv('review-queue', queueShown));
 
 // ---------- explore ----------
 let all = null;
+let exShown = [];
+let exOpen = null;
 async function loadExplore() {
   try {
-    await fillTaxonomySelects();
     all = await rest(`feedback?select=${COLS}&${NOT_ARCHIVED}&order=feedback_date.desc`);
     drawExplore();
   } catch (e) { fail($('ex-rows'), e); }
 }
-// Column filters: click a column title to open its panel. Several values in
-// one group mean "any of these"; different groups combine with "and".
-const EX_GROUPS = {
-  sentiment: { label: 'Sentiment', get: (r) => r.sentiment || '', order: ['Positive', 'Negative', 'Mixed'] },
-  severity: { label: 'Severity', get: (r) => r.severity || '', order: ['Sev1', 'Sev2', 'Sev3', 'None'] },
-  theme: { label: 'Theme', get: (r) => r.theme || '' },
-  area: { label: 'Product area', get: (r) => r.product_area || '' },
-  role: { label: 'Role', get: (r) => r.user_role || '', order: ['attorney', 'paralegal', 'case_manager'] },
-  firm: { label: 'Firm size', get: (r) => r.firm_size || '', order: ['small', 'medium', 'large'] },
-  status: { label: 'Status', get: (r) => r.status || '', order: ['Pending', 'Unsure', 'Confirmed', 'Corrected', ''] },
-};
 const EX_COLS = { date: [], tags: ['sentiment', 'severity', 'theme', 'area'], who: ['role', 'firm'], status: ['status'] };
 const COL_TITLES = { date: 'Date', tags: 'Tags', who: 'Who', status: 'Status' };
-const EX = { sort: 'desc', from: '', to: '', open: null };
-for (const g of Object.keys(EX_GROUPS)) EX[g] = new Set();
-const optLabel = (v) => (v === '' ? 'Not tagged yet' : String(v).replace('_', ' '));
-
-$('ex-q').addEventListener('input', () => all && drawExplore());
+let qTimer = null;
+$('ex-q').addEventListener('input', () => { clearTimeout(qTimer); qTimer = setTimeout(() => { F.q = $('ex-q').value; filtersChanged(); }, 200); });
 document.querySelectorAll('#explore .th-btn').forEach((b) => b.addEventListener('click', () => {
-  EX.open = EX.open === b.dataset.col ? null : b.dataset.col;
+  exOpen = exOpen === b.dataset.col ? null : b.dataset.col;
   drawPanel(); drawHeaders();
 }));
 $('ex-panel').addEventListener('keydown', (e) => {
-  if (e.key === 'Escape') { const col = EX.open; EX.open = null; drawPanel(); drawHeaders(); document.querySelector(`#explore .th-btn[data-col="${col}"]`)?.focus(); }
+  if (e.key === 'Escape') { const col = exOpen; exOpen = null; drawPanel(); drawHeaders(); document.querySelector(`#explore .th-btn[data-col="${col}"]`)?.focus(); }
 });
-
+const PRESETS = {
+  sev1: { severity: ['Sev1'] },
+  wins: { sentiment: ['Positive'], q: 'time' },
+  review: { status: ['Pending', 'Unsure'] },
+};
+document.querySelectorAll('#explore [data-preset]').forEach((b) => b.addEventListener('click', () => {
+  for (const g of GROUP_KEYS) F[g].clear();
+  F.q = ''; F.from = ''; F.to = '';
+  for (const [k, v] of Object.entries(PRESETS[b.dataset.preset])) { if (k === 'q') F.q = v; else F[k] = new Set(v); }
+  filtersChanged();
+}));
 function activeCount(col) {
-  if (col === 'date') return (EX.from ? 1 : 0) + (EX.to ? 1 : 0);
-  return EX_COLS[col].reduce((n, g) => n + EX[g].size, 0);
+  if (col === 'date') return (F.from ? 1 : 0) + (F.to ? 1 : 0);
+  return EX_COLS[col].reduce((n, g) => n + F[g].size, 0);
 }
 function drawHeaders() {
   document.querySelectorAll('#explore .th-btn').forEach((b) => {
@@ -649,41 +942,41 @@ function drawHeaders() {
     const n = activeCount(col);
     b.textContent = `${COL_TITLES[col]}${n ? ` (${n})` : ''}`;
     b.classList.toggle('active', n > 0);
-    b.setAttribute('aria-expanded', String(EX.open === col));
+    b.setAttribute('aria-expanded', String(exOpen === col));
   });
 }
 function optionsFor(g) {
   const counts = new Map();
-  for (const r of all || []) { const v = EX_GROUPS[g].get(r); counts.set(v, (counts.get(v) || 0) + 1); }
-  const order = EX_GROUPS[g].order;
+  for (const r of all || []) { const v = GROUPS[g].get(r); counts.set(v, (counts.get(v) || 0) + 1); }
+  const order = GROUPS[g].order;
   // Status always lists every value, so reviewers can see Confirmed (0) and so on.
-  const values = [...new Set([...(order || []), ...counts.keys()])].filter((v) => g === 'status' || counts.has(v) || EX[g].has(v));
+  const values = [...new Set([...(order || []), ...counts.keys()])].filter((v) => g === 'status' || counts.has(v) || F[g].has(v));
   return values.sort((a, b) => order ? order.indexOf(a) - order.indexOf(b) : String(a).localeCompare(String(b)))
     .map((v) => ({ v, n: counts.get(v) || 0 }));
 }
 function drawPanel() {
   const panel = $('ex-panel');
-  if (!EX.open) { panel.hidden = true; panel.replaceChildren(); return; }
+  if (!exOpen) { panel.hidden = true; panel.replaceChildren(); return; }
   panel.hidden = false;
   const done = el('button', { type: 'button' }, 'Done');
-  done.addEventListener('click', () => { EX.open = null; drawPanel(); drawHeaders(); });
-  const clear = el('button', { type: 'button' }, `Clear ${COL_TITLES[EX.open].toLowerCase()} filters`);
+  done.addEventListener('click', () => { exOpen = null; drawPanel(); drawHeaders(); });
+  const clear = el('button', { type: 'button' }, `Clear ${COL_TITLES[exOpen].toLowerCase()} filters`);
   clear.addEventListener('click', () => {
-    if (EX.open === 'date') { EX.from = ''; EX.to = ''; EX.sort = 'desc'; } else EX_COLS[EX.open].forEach((g) => EX[g].clear());
-    drawPanel(); drawExplore();
+    if (exOpen === 'date') { F.from = ''; F.to = ''; F.sort = 'desc'; } else EX_COLS[exOpen].forEach((g) => F[g].clear());
+    drawPanel(); filtersChanged();
   });
   let body;
-  if (EX.open === 'date') {
+  if (exOpen === 'date') {
     const dates = (all || []).map((r) => r.feedback_date).filter(Boolean).sort();
     const sortSeg = el('div', { class: 'seg', role: 'group', 'aria-label': 'Sort by date' },
       ...[['desc', 'Newest first'], ['asc', 'Oldest first']].map(([k, t]) => {
-        const b = el('button', { type: 'button', 'aria-pressed': String(EX.sort === k) }, t);
-        b.addEventListener('click', () => { EX.sort = k; drawPanel(); drawExplore(); });
+        const b = el('button', { type: 'button', 'aria-pressed': String(F.sort === k) }, t);
+        b.addEventListener('click', () => { F.sort = k; drawPanel(); filtersChanged(); });
         return b;
       }));
     const dateInput = (key, label) => {
-      const i = el('input', { type: 'date', value: EX[key], min: dates[0], max: dates.at(-1), 'aria-label': label });
-      i.addEventListener('change', () => { EX[key] = i.value; drawExplore(); });
+      const i = el('input', { type: 'date', value: F[key], min: dates[0], max: dates.at(-1), 'aria-label': label });
+      i.addEventListener('change', () => { F[key] = i.value; filtersChanged(); });
       return el('label', {}, `${label} `, i);
     };
     body = [
@@ -692,57 +985,35 @@ function drawPanel() {
         el('div', { class: 'opts' }, dateInput('from', 'From'), dateInput('to', 'To'))),
     ];
   } else {
-    body = EX_COLS[EX.open].map((g) => el('fieldset', {}, el('legend', {}, EX_GROUPS[g].label),
+    body = EX_COLS[exOpen].map((g) => el('fieldset', {}, el('legend', {}, GROUPS[g].label),
       el('div', { class: 'opts' }, ...optionsFor(g).map(({ v, n }) => {
         const box = el('input', { type: 'checkbox' });
-        box.checked = EX[g].has(v);
-        box.addEventListener('change', () => { if (box.checked) EX[g].add(v); else EX[g].delete(v); drawExplore(); });
+        box.checked = F[g].has(v);
+        box.addEventListener('change', () => { if (box.checked) F[g].add(v); else F[g].delete(v); filtersChanged(); });
         return el('label', {}, box, optLabel(v), el('span', { class: 'cnt' }, `(${n})`));
       }))));
   }
   panel.replaceChildren(...body, el('div', { class: 'panel-foot' }, clear, done));
   panel.querySelector('input, button')?.focus();
 }
-function drawChips() {
-  const chips = [];
-  for (const g of Object.keys(EX_GROUPS)) for (const v of EX[g]) {
-    const b = el('button', { type: 'button', class: 'chip-x', 'aria-label': `Remove filter ${EX_GROUPS[g].label}: ${optLabel(v)}` }, `${EX_GROUPS[g].label}: ${optLabel(v)}`);
-    b.addEventListener('click', () => { EX[g].delete(v); drawPanel(); drawExplore(); });
-    chips.push(b);
-  }
-  for (const [key, label] of [['from', 'From'], ['to', 'To']]) if (EX[key]) {
-    const b = el('button', { type: 'button', class: 'chip-x', 'aria-label': `Remove filter ${label} ${EX[key]}` }, `${label}: ${fmtDate(EX[key])}`);
-    b.addEventListener('click', () => { EX[key] = ''; drawPanel(); drawExplore(); });
-    chips.push(b);
-  }
-  if (chips.length > 1) {
-    const all_ = el('button', { type: 'button', class: 'clear' }, 'Clear all');
-    all_.addEventListener('click', () => { Object.keys(EX_GROUPS).forEach((g) => EX[g].clear()); EX.from = ''; EX.to = ''; drawPanel(); drawExplore(); });
-    chips.push(all_);
-  }
-  $('ex-chips').replaceChildren(...chips);
-}
 function drawExplore() {
-  const q = $('ex-q').value.trim().toLowerCase();
-  const groups = Object.keys(EX_GROUPS);
-  const rows = all.filter((r) =>
-    (!q || (r.feedback_text || '').toLowerCase().includes(q)) &&
-    groups.every((g) => !EX[g].size || EX[g].has(EX_GROUPS[g].get(r))) &&
-    (!EX.from || r.feedback_date >= EX.from) &&
-    (!EX.to || r.feedback_date <= EX.to))
-    .sort((a, b) => (EX.sort === 'asc' ? 1 : -1) * (String(a.feedback_date).localeCompare(String(b.feedback_date)) || String(a.created_at).localeCompare(String(b.created_at))));
-  drawHeaders(); drawChips();
+  const rows = all.filter((r) => matches(r, 'explore'))
+    .sort((a, b) => (F.sort === 'asc' ? 1 : -1) * (String(a.feedback_date).localeCompare(String(b.feedback_date)) || String(a.created_at).localeCompare(String(b.created_at))));
+  exShown = rows;
+  drawHeaders();
   $('ex-n').textContent = rows.length
-    ? `${rows.length > 200 ? `Showing the first 200 of ${rows.length} matching rows` : `Showing ${rows.length} of ${all.length} rows`}.${rows.length < CONFIG.SMALL ? ' Fewer than 10: directional.' : ''} Click a column title to filter. For counts by theme, use Overview: it groups near-duplicates.`
+    ? `${rows.length > 200 ? `Showing the first 200 of ${rows.length} matching rows (the CSV has all of them)` : `Showing ${rows.length} of ${all.length} rows`}.${rows.length < CONFIG.SMALL ? ' Fewer than 10: directional.' : ''} Click a column title to filter. For counts by theme, use Overview: it groups near-duplicates.`
     : 'No rows match these filters.';
   $('ex-rows').replaceChildren(...rows.slice(0, 200).map((r) => el('tr', rowAttrs(r),
     el('td', { class: 'num' }, newBadge(r), fmtDate(r.feedback_date)),
     el('td', { class: 'quote' }, quote(r.feedback_text), r.injection_suspected ? el('div', { class: 'flag' }, 'Possible prompt injection: review by hand') : ''),
-    el('td', {}, sevBadge(r.severity), ' ', r.theme || 'Not tagged yet', el('div', { class: 'small' }, [r.product_area, r.sentiment].filter(Boolean).join(' · '))),
+    el('td', {}, ...tagsCell(r)),
     el('td', {}, who(r)),
     el('td', {}, r.status || 'Not tagged yet'),
     el('td', {}, openLink(r.fb_id)))));
+  labelCells($('ex-rows'));
 }
+$('ex-csv').addEventListener('click', () => downloadCsv('feedback', exShown));
 
 // ---------- taxonomy: selects and the severity rubric ----------
 let taxonomy = null;
@@ -755,7 +1026,7 @@ async function fillTaxonomySelects() {
   const fill = (id, field) => {
     const s = $(id);
     if (s.options.length > 1) return;
-    t.filter((r) => r.field === field).forEach((r) => s.append(el('option', {}, r.value)));
+    t.filter((r) => r.field === field).forEach((r) => s.append(el('option', { value: r.value }, r.value)));
   };
   fill('tr-theme', 'theme'); fill('tr-area', 'product_area');
 }
@@ -797,9 +1068,9 @@ async function loadJustIn() {
         r.severity === 'Sev1' ? el('span', {}, r.alerted_at ? `Alert emailed ${clock(new Date(r.alerted_at))}` : 'Alert goes out next sync') : '',
         el('span', {}, `In database ${clock(new Date(r.created_at))}`))),
       el('td', {}, openLink(r.fb_id)))));
+    labelCells($('justin-rows'));
   } catch (e) { fail($('justin-rows'), e); $('justin').hidden = false; }
 }
-
 function setTabCount(id, n) {
   const tab = $(id);
   tab.querySelector('.tabnew')?.remove();
@@ -807,6 +1078,7 @@ function setTabCount(id, n) {
 }
 
 // ---------- live refresh ----------
+const dataReady = { overview: () => true, sev1: () => Boolean(sev1Rows), segments: () => true, trend: () => true, queue: () => Boolean(queueRows), explore: () => Boolean(all) };
 const reloaders = { overview: loadOverview, sev1: loadSev1, segments: loadSegments, trend: drawTrend, queue: loadQueue, explore: loadExplore };
 let lastChecked = null;
 let online = true;
@@ -836,15 +1108,18 @@ $('refresh-now').addEventListener('click', refreshAll);
 setInterval(() => { if (!document.hidden) refreshAll(); }, CONFIG.REFRESH_MS);
 document.addEventListener('visibilitychange', () => { renderLive(); if (!document.hidden) refreshAll(); });
 
-// ---------- start ----------
-loadRubric();
-Promise.all([loadHeader(), loadJustIn()]).then(([ok]) => { online = ok; if (ok) lastChecked = new Date(); renderLive(); });
+// ---------- start: tab and filters come from the URL, so links can be shared ----------
 function fromHash() {
-  const id = (location.hash || '#overview').slice(1);
-  if (loaders[id]) show(id);
+  const [tab, qs] = (location.hash || '#overview').slice(1).split('?');
+  queryToFilters(qs);
+  loaded.clear();
+  show(loaders[tab] ? tab : 'overview');
 }
 window.addEventListener('hashchange', fromHash);
-if (!loaders[(location.hash || '#overview').slice(1)]) show('overview'); else fromHash();
+loadRubric();
+fillTaxonomySelects().then(syncControls).catch(() => {});
+Promise.all([loadHeader(), loadJustIn()]).then(([ok]) => { online = ok; if (ok) lastChecked = new Date(); renderLive(); });
+fromHash();
 </script>
 </body>
 </html>
