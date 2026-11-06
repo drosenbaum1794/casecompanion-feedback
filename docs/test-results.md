@@ -4,3 +4,4 @@ The 20 scenarios from the scope doc's test plan, with pass or fail and the date 
 
 | # | Scenario | Severity | Result | Date | Notes |
 | --- | --- | --- | --- | --- | --- |
+| 15 | Near-duplicates group together | Major | **Pass** | 2026-11-06 | Embedding groups (gte-small, connected components) checked against 12 hand-identified groups. At the scope doc's starting threshold of 0.88, all 12 grouped but unrelated rows chained into one 18-row "issue". Tuned to **0.91**: 11 of 12 groups intact, largest group 4 rows, 78 issues across 100 rows. The one split is two double-booking complaints via different systems (court reporting vs Outlook), which are arguably separate issues. One over-merge: two pairs of trial-prep praise in one group of 4. Complaints: 55 mentions, 43 distinct issues; Sev1: 8 mentions, 5 issues. |

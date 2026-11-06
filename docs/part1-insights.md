@@ -1,6 +1,6 @@
 # CaseCompanion feedback: what 100 rows say
 
-**Draft, Nov 6, 2026.** Source: 100 feedback rows, Jul 8 to Sep 9, 2024, tagged by the pipeline (prompt v2) and spot-checked by hand. "Complaints" means Negative plus Mixed (55 rows); praise is the other 45. Small sample, two months, no account IDs: treat segment differences as directional. Every number comes from `scripts/part1_stats.py`.
+**Draft, Nov 6, 2026.** Source: 100 feedback rows, Jul 8 to Sep 9, 2024, tagged by the pipeline (prompt v2) and spot-checked by hand. "Complaints" means Negative plus Mixed (55 rows); praise is the other 45. Small sample, two months, no account IDs: treat segment differences as directional. Counts come from `scripts/part1_stats.py`; distinct-issue counts come from the Supabase read functions.
 
 ## Core insights
 
@@ -19,7 +19,7 @@
 
 **5. The most hands-on users report the most serious problems.** Paralegals: 79% of their rows are complaints, against 38% for attorneys. Large firms: 71% complaints and 61% Sev1 or Sev2, against 38% and 19% for small firms. Heavy users (top quartile, 523+ queries a month): 52% Sev1 or Sev2, against 35% for everyone else. All 8 Sev1 rows come from medium or large firms. Tenure makes no difference (56% vs 55%).
 
-**How to read the raw data.** 55 complaint mentions collapse to 42 distinct issues: 12 groups of near-identical feedback cover 25 rows. Keyword counts mislead in both directions: 16 rows say "inaccurate" or "incorrect," but only 4 of those are Sev1, and half the Sev1 rows use neither word. Channel isn't sentiment: 4 of 20 bug reports are praise. And none of the 100 rows is about asking CaseCompanion a question. The feedback spans 10 product areas.
+**How to read the raw data.** 55 complaint mentions collapse to 43 distinct issues once near-identical feedback is grouped by text similarity (Supabase `theme_summary`). Keyword counts mislead in both directions: 16 rows say "inaccurate" or "incorrect," but only 4 of those are Sev1, and half the Sev1 rows use neither word. Channel isn't sentiment: 4 of 20 bug reports are praise. And none of the 100 rows is about asking CaseCompanion a question. The feedback spans 10 product areas.
 
 ## Recommended research
 

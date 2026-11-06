@@ -13,7 +13,9 @@ import { createClient } from "jsr:@supabase/supabase-js@2";
 
 const MAX_BATCH = 25;
 const MAX_MISSING = 3;
-const ISSUE_THRESHOLD = Number(Deno.env.get("ISSUE_THRESHOLD") ?? "0.88");
+// Tuned on the 12 known near-duplicate groups: 0.88 chained unrelated rows into
+// an 18-row group; 0.91 keeps 11 of 12 groups and caps groups at 4 rows.
+const ISSUE_THRESHOLD = Number(Deno.env.get("ISSUE_THRESHOLD") ?? "0.91");
 const ID_RE = /^fb_[a-z0-9]{8}$/;
 
 const db = createClient(
