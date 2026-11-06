@@ -114,6 +114,20 @@ td.quote { min-width: 260px; max-width: 460px; }
 svg text { fill: var(--muted); font-size: 11px; }
 .empty { color: var(--muted); font-size: 14px; padding: 8px 0; }
 .err { color: var(--critical); }
+/* ---------- live ---------- */
+.live { display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: center; font-size: 13px; color: var(--ink-2); margin: -4px 0 14px; }
+.live .pulse { width: 8px; height: 8px; border-radius: 50%; background: var(--good); flex: none; }
+@media (prefers-reduced-motion: no-preference) {
+  .live .pulse { animation: pulse 2s ease-in-out infinite; }
+  @keyframes pulse { 50% { opacity: .35; } }
+}
+.live.paused .pulse { background: var(--axis); animation: none; }
+.live button { font: inherit; font-size: 13px; border: 1px solid var(--axis); background: var(--surface); color: var(--ink); border-radius: 6px; padding: 3px 9px; cursor: pointer; }
+.newb { display: inline-block; font-size: 11px; font-weight: 700; letter-spacing: .03em; text-transform: uppercase; color: var(--link);
+  border: 1px solid currentColor; border-radius: 4px; padding: 0 4px; margin-right: 6px; vertical-align: 1px; }
+tr.is-new td { background: color-mix(in srgb, var(--bar) 8%, transparent); }
+#justin { border-color: color-mix(in srgb, var(--bar) 45%, transparent); }
+.waiting { font-size: 12px; color: var(--muted); font-style: italic; }
 footer { margin-top: 28px; font-size: 13px; color: var(--ink-2); }
 footer dl { display: grid; grid-template-columns: max-content 1fr; gap: 6px 12px; }
 footer dt { font-weight: 600; }
@@ -126,6 +140,13 @@ footer dt { font-weight: 600; }
   <div class="facts">
     <div id="sample"></div>
     <div id="trust"></div>
+  </div>
+  <div class="live" id="live" role="status"><span class="pulse" aria-hidden="true"></span><span id="live-text">Live</span><button type="button" id="refresh-now">Refresh now</button></div>
+
+  <div class="card" id="justin" hidden aria-live="polite">
+    <h2>Just in</h2>
+    <p class="sub" id="justin-sub"></p>
+    <div class="tablewrap"><table><thead><tr><th>Severity</th><th>Feedback</th><th>Tags</th><th>Who</th><th></th></tr></thead><tbody id="justin-rows"></tbody></table></div>
   </div>
 
   <nav role="tablist" aria-label="Views">
@@ -226,7 +247,15 @@ const CONFIG = {
   // From docs/prompt-log.md: production v2 on the 40-row eval set, adjudicated labels.
   EVAL: { rows: 40, allFour: 26, sev1Caught: 7, sev1Total: 7 },
   SMALL: 10,
+  REFRESH_MS: 30000,
 };
+
+// "New" means it reached the database after this page opened. ?since=<ISO time>
+// shows everything that arrived after a chosen moment instead.
+const sinceParam = new URLSearchParams(location.search).get('since');
+const OPENED = sinceParam && !Number.isNaN(Date.parse(sinceParam)) ? new Date(sinceParam) : new Date();
+const isNew = (r) => { const t = r.created_at || r.tagged_at; return Boolean(t) && new Date(t) > OPENED; };
+const clock = (d) => d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
 
 // ---------- tiny helpers (all data goes in as text, never as HTML) ----------
 const $ = (id) => document.getElementById(id);
@@ -249,6 +278,14 @@ async function rpc(name, args = {}) {
   if (!r.ok) throw new Error(`${name}: HTTP ${r.status}`);
   return r.json();
 }
+// Same as rest(), plus the exact total from the Content-Range header (e.g. "0-49/137").
+async function restCounted(path) {
+  const r = await fetch(`${CONFIG.SUPABASE_URL}/rest/v1/${path}`, { headers: { ...headers, Prefer: 'count=exact' } });
+  if (!r.ok) throw new Error(`${path.split('?')[0]}: HTTP ${r.status}`);
+  const total = Number((r.headers.get('content-range') || '').split('/')[1]);
+  const rows = await r.json();
+  return { rows, total: Number.isFinite(total) ? total : rows.length };
+}
 async function rest(path) {
   const r = await fetch(`${CONFIG.SUPABASE_URL}/rest/v1/${path}`, { headers });
   if (!r.ok) throw new Error(`${path.split('?')[0]}: HTTP ${r.status}`);
@@ -263,12 +300,16 @@ function openLink(id) { return el('a', { href: `${CONFIG.WEBAPP_URL}?id=${encode
 function quote(text) { return el('q', {}, text || ''); }
 function who(r) { return `${(r.user_role || '').replace('_', ' ')}, ${r.firm_size || '?'} firm`; }
 function fail(target, e) { target.replaceChildren(el('p', { class: 'err' }, `Could not load: ${e.message}`)); }
+function newBadge(r) { return isNew(r) ? el('span', { class: 'newb' }, 'New') : ''; }
+function rowAttrs(r) { return isNew(r) ? { class: 'is-new' } : {}; }
 
 // ---------- tabs ----------
 const tabs = [...document.querySelectorAll('[role="tab"]')];
 const loaded = new Set();
 const loaders = { overview: loadOverview, sev1: loadSev1, segments: loadSegments, trend: loadTrend, queue: loadQueue, explore: loadExplore };
+let currentTab = 'overview';
 function show(id) {
+  currentTab = id;
   for (const t of tabs) {
     const on = t.getAttribute('aria-controls') === id;
     t.setAttribute('aria-selected', String(on));
@@ -353,7 +394,7 @@ async function loadOverview() {
 }
 
 // ---------- Sev1 ----------
-const COLS = 'fb_id,feedback_date,channel,feedback_text,user_role,firm_size,months_subscribed,monthly_queries,sentiment,theme,product_area,severity,confidence,claude_reason,status,follow_up,follow_up_status,ticket_link,injection_suspected,issue_id,tagged_at,alerted_at';
+const COLS = 'fb_id,feedback_date,channel,feedback_text,user_role,firm_size,months_subscribed,monthly_queries,sentiment,theme,product_area,severity,confidence,claude_reason,status,follow_up,follow_up_status,ticket_link,injection_suspected,issue_id,tagged_at,alerted_at,created_at';
 const NOT_ARCHIVED = 'or=(status.is.null,status.neq.Archived)';
 async function loadSev1() {
   try {
@@ -361,8 +402,8 @@ async function loadSev1() {
     const issues = new Set(rows.map((r) => r.issue_id || r.fb_id)).size;
     const open = rows.filter((r) => r.follow_up_status !== 'Resolved').length;
     $('sev1-n').textContent = `n = ${rows.length} rows, ${issues} distinct issues. ${open} without a resolved follow-up. Each one emailed the routed CSM once.`;
-    $('sev1-rows').replaceChildren(...rows.map((r) => el('tr', {},
-      el('td', { class: 'num' }, fmtDate(r.feedback_date)),
+    $('sev1-rows').replaceChildren(...rows.map((r) => el('tr', rowAttrs(r),
+      el('td', { class: 'num' }, newBadge(r), fmtDate(r.feedback_date)),
       el('td', { class: 'quote' }, quote(r.feedback_text), r.injection_suspected ? el('div', { class: 'flag' }, 'Possible prompt injection: review by hand') : ''),
       el('td', {}, who(r), el('div', { class: 'small' }, `${r.months_subscribed} mo, ${r.monthly_queries} queries/mo`)),
       el('td', {}, r.theme, el('div', { class: 'small' }, r.product_area)),
@@ -440,8 +481,8 @@ async function loadQueue() {
   try {
     const rows = await rpc('review_queue');
     $('q-title').textContent = `Review queue: ${rows.length} left`;
-    $('q-rows').replaceChildren(...rows.slice(0, 200).map((r) => el('tr', {},
-      el('td', {}, r.confidence || '', r.status === 'Unsure' ? el('div', { class: 'small' }, 'Unsure') : ''),
+    $('q-rows').replaceChildren(...rows.slice(0, 200).map((r) => el('tr', rowAttrs(r),
+      el('td', {}, newBadge(r), r.confidence || '', r.status === 'Unsure' ? el('div', { class: 'small' }, 'Unsure') : ''),
       el('td', {}, sevBadge(r.severity), el('div', { class: 'small' }, r.theme)),
       el('td', { class: 'quote' }, quote(r.feedback_text), r.injection_suspected ? el('div', { class: 'flag' }, 'Possible prompt injection: review by hand') : ''),
       el('td', { class: 'small' }, r.claude_reason || ''),
@@ -457,10 +498,10 @@ async function loadExplore() {
   try {
     await fillTaxonomySelects();
     all = await rest(`feedback?select=${COLS}&${NOT_ARCHIVED}&order=feedback_date.desc`);
-    ['ex-q', 'ex-sent', 'ex-sev', 'ex-theme', 'ex-area'].forEach((id) => $(id).addEventListener('input', drawExplore));
     drawExplore();
   } catch (e) { fail($('ex-rows'), e); }
 }
+['ex-q', 'ex-sent', 'ex-sev', 'ex-theme', 'ex-area'].forEach((id) => $(id).addEventListener('input', () => all && drawExplore()));
 function drawExplore() {
   const q = $('ex-q').value.trim().toLowerCase();
   const rows = all.filter((r) =>
@@ -470,8 +511,8 @@ function drawExplore() {
     (!$('ex-theme').value || r.theme === $('ex-theme').value) &&
     (!$('ex-area').value || r.product_area === $('ex-area').value));
   $('ex-n').textContent = `Showing ${rows.length} of ${all.length} rows.${rows.length && rows.length < CONFIG.SMALL ? ' Fewer than 10: directional.' : ''} For counts by theme, use Overview: it groups near-duplicates.`;
-  $('ex-rows').replaceChildren(...rows.slice(0, 200).map((r) => el('tr', {},
-    el('td', { class: 'num' }, fmtDate(r.feedback_date)),
+  $('ex-rows').replaceChildren(...rows.slice(0, 200).map((r) => el('tr', rowAttrs(r),
+    el('td', { class: 'num' }, newBadge(r), fmtDate(r.feedback_date)),
     el('td', { class: 'quote' }, quote(r.feedback_text), r.injection_suspected ? el('div', { class: 'flag' }, 'Possible prompt injection: review by hand') : ''),
     el('td', {}, sevBadge(r.severity), ' ', r.theme || 'Not tagged yet', el('div', { class: 'small' }, [r.product_area, r.sentiment].filter(Boolean).join(' · '))),
     el('td', {}, who(r)),
@@ -502,9 +543,61 @@ async function loadRubric() {
   } catch (e) { fail($('rubric-list'), e); }
 }
 
+// ---------- just in: rows that reached the database after the page opened ----------
+async function loadJustIn() {
+  try {
+    const since = `created_at=gt.${encodeURIComponent(OPENED.toISOString())}&${NOT_ARCHIVED}`;
+    const [{ rows, total }, tagged, sev1, flagged] = await Promise.all([
+      restCounted(`feedback?select=${COLS}&${since}&order=created_at.desc&limit=10`),
+      restCounted(`feedback?select=fb_id&${since}&theme=not.is.null&limit=1`),
+      restCounted(`feedback?select=fb_id&${since}&severity=eq.Sev1&limit=1`),
+      restCounted(`feedback?select=fb_id&${since}&injection_suspected=is.true&limit=1`),
+    ]);
+    $('justin').hidden = total === 0;
+    if (!total) return;
+    const waiting = total - tagged.total;
+    $('justin-sub').textContent = `${plural(total, 'new row')} since ${clock(OPENED)}. ${tagged.total} tagged` +
+      `${waiting ? `, ${waiting} waiting for the tagger` : ''}. ` +
+      `${plural(sev1.total, 'Sev1')}${flagged.total ? `, ${flagged.total} flagged as possible prompt injection` : ''}.` +
+      (total > 10 ? ' Showing the 10 newest.' : '');
+    $('justin-rows').replaceChildren(...rows.slice(0, 10).map((r) => el('tr', {},
+      el('td', {}, r.severity ? sevBadge(r.severity) : el('span', { class: 'waiting' }, 'Waiting for tags')),
+      el('td', { class: 'quote' }, quote(r.feedback_text), r.injection_suspected ? el('div', { class: 'flag' }, 'Possible prompt injection: review by hand') : ''),
+      el('td', {}, r.theme || '', el('div', { class: 'small' }, [r.product_area, r.sentiment].filter(Boolean).join(' · '))),
+      el('td', {}, who(r)),
+      el('td', {}, openLink(r.fb_id)))));
+  } catch (e) { fail($('justin-rows'), e); $('justin').hidden = false; }
+}
+
+// ---------- live refresh ----------
+const reloaders = { overview: loadOverview, sev1: loadSev1, segments: loadSegments, trend: drawTrend, queue: loadQueue, explore: loadExplore };
+let lastChecked = null;
+let refreshing = false;
+function renderLive() {
+  const paused = document.hidden;
+  $('live').classList.toggle('paused', paused);
+  $('live-text').textContent = paused
+    ? 'Live updates paused while this tab is in the background.'
+    : `Live: refreshes every ${CONFIG.REFRESH_MS / 1000} seconds${lastChecked ? `, last checked ${lastChecked.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', second: '2-digit' })}` : ''}. "New" means arrived after ${clock(OPENED)}.`;
+}
+async function refreshAll() {
+  if (refreshing) return;
+  refreshing = true;
+  try {
+    // Other tabs reload fresh when opened next.
+    loaded.clear(); loaded.add(currentTab);
+    await Promise.all([loadHeader(), loadJustIn(), reloaders[currentTab]()]);
+    lastChecked = new Date();
+  } finally { refreshing = false; renderLive(); }
+}
+$('refresh-now').addEventListener('click', refreshAll);
+setInterval(() => { if (!document.hidden) refreshAll(); }, CONFIG.REFRESH_MS);
+document.addEventListener('visibilitychange', () => { renderLive(); if (!document.hidden) refreshAll(); });
+
 // ---------- start ----------
 loadHeader();
 loadRubric();
+loadJustIn().then(() => { lastChecked = new Date(); renderLive(); });
 function fromHash() {
   const id = (location.hash || '#overview').slice(1);
   if (loaders[id]) show(id);
