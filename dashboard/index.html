@@ -174,9 +174,27 @@ tr.is-new td { background: color-mix(in srgb, var(--bar) 8%, transparent); }
 .fd-foot button.primary { background: var(--bar); border-color: var(--bar); color: #fff; font-weight: 600; }
 .ed-body { grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px 20px; }
 .ed-body .wide { grid-column: 1 / -1; margin: 0; }
-.ed-body label { display: grid; gap: 4px; align-content: start; font-size: 13px; font-weight: 600; color: var(--ink-2); }
+.ed-body label, .ed-field { display: grid; gap: 4px; align-content: start; font-size: 13px; font-weight: 600; color: var(--ink-2); }
 .ed-body input[type="text"] { font: inherit; font-size: 14px; padding: 6px 8px; border-radius: 6px; border: 1px solid var(--axis); background: var(--surface); color: var(--ink); }
 .ed-quote { font-size: 14px; background: var(--surface-2); border-radius: 8px; padding: 10px 12px; }
+.ed-field > span { font-size: 13px; font-weight: 600; color: var(--ink-2); }
+.ed-field select { width: 100%; }
+.fdialog { position: fixed; }
+.sevhelp { position: absolute; z-index: 2; width: min(380px, calc(100% - 32px)); max-height: 60%; overflow-y: auto; padding: 12px 14px;
+  background: var(--surface); border: 1px solid var(--axis); border-radius: 10px; box-shadow: 0 8px 28px rgba(0,0,0,.22); font-size: 13px; }
+.sevhelp dl { margin: 0; display: grid; grid-template-columns: max-content 1fr; gap: 8px 10px; }
+.sevhelp dd { margin: 0; color: var(--ink-2); }
+.sevhelp .sh-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; font-weight: 650; }
+.dots { font-weight: 700; letter-spacing: 1px; }
+.dots span { display: inline-block; }
+@media (prefers-reduced-motion: no-preference) {
+  .dots span { animation: dot 1s ease-in-out infinite; }
+  .dots span:nth-child(2) { animation-delay: .15s; }
+  .dots span:nth-child(3) { animation-delay: .3s; }
+  @keyframes dot { 0%, 60%, 100% { transform: translateY(0); } 30% { transform: translateY(-5px); } }
+}
+.toast.ok { background: var(--good-ink); color: #fff; font-weight: 600; }
+.confetti { position: fixed; width: 8px; height: 12px; border-radius: 2px; z-index: 11; pointer-events: none; }
 .acts { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
 .act { font: inherit; font-size: 13px; border: 1px solid var(--axis); background: var(--surface); color: var(--ink); border-radius: 6px; padding: 3px 9px; cursor: pointer; white-space: nowrap; }
 .act.primary { background: var(--bar); border-color: var(--bar); color: #fff; font-weight: 600; }
@@ -379,12 +397,13 @@ tr.baseline td { font-weight: 650; background: var(--surface-2); }
       <div class="wide ed-quote" id="ed-quote"></div>
       <p class="wide small" id="ed-claude"></p>
       <label>Sentiment <select id="ed-sentiment"></select></label>
-      <label>Severity <a href="#rubric" class="small" id="ed-rubric">(definitions)</a> <select id="ed-severity"></select></label>
+      <div class="ed-field"><span><label for="ed-severity">Severity</label> <button type="button" class="linkbtn small" id="ed-rubric" aria-expanded="false" aria-controls="ed-sevhelp">(definitions)</button></span><select id="ed-severity"></select></div>
       <label>Theme <select id="ed-theme"></select></label>
       <label>Product area <select id="ed-area"></select></label>
       <label class="wide">Your name, for the sheet's reviewed_by column (optional, remembered on this browser) <input type="text" id="ed-who" maxlength="40" autocomplete="name"></label>
       <p class="wide small" id="ed-note">Saving writes to the sheet, then syncs. Raising a row to Sev1 emails the routed CSM once.</p>
     </div>
+    <div class="sevhelp" id="ed-sevhelp" role="dialog" aria-label="Severity definitions" hidden></div>
     <div class="fd-foot"><button type="button" id="ed-cancel">Cancel</button><button type="button" class="primary" id="ed-save">Save to sheet</button></div>
   </dialog>
   <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
@@ -923,10 +942,42 @@ function toast(msg, bad) {
   clearTimeout(toastTimer);
   toastTimer = setTimeout(() => { t.hidden = true; }, bad ? 12000 : 8000);
 }
-const DOING = { confirm: 'Confirming', correct: 'Saving', unsure: 'Marking as Unsure' };
+function toastSaving() {
+  const t = $('toast');
+  clearTimeout(toastTimer);
+  t.className = 'toast'; t.hidden = false;
+  t.replaceChildren('Saving', el('span', { class: 'dots', 'aria-hidden': 'true' }, el('span', {}, '.'), el('span', {}, '.'), el('span', {}, '.')));
+}
+function toastSaved(synced) {
+  const t = $('toast');
+  clearTimeout(toastTimer);
+  t.className = 'toast ok'; t.hidden = false;
+  t.textContent = synced ? 'Saved!' : 'Saved to the sheet! It reaches the dashboard on the next sync, within 10 minutes.';
+  confetti(t);
+  toastTimer = setTimeout(() => { t.hidden = true; }, synced ? 2500 : 6000);
+}
+// A short burst from the message. Skipped for people who prefer reduced motion.
+function confetti(from) {
+  if (matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  const box = from.getBoundingClientRect();
+  const x = box.left + box.width / 2, y = box.top;
+  const colors = ['var(--bar)', 'var(--good)', 'var(--warning)', 'var(--serious)', 'var(--critical)', 'var(--bar-2)'];
+  for (let i = 0; i < 30; i++) {
+    const p = el('span', { class: 'confetti', 'aria-hidden': 'true', style: `left:${x}px;top:${y}px;background:${colors[i % colors.length]}` });
+    document.body.append(p);
+    const a = (-90 + (Math.random() * 140 - 70)) * Math.PI / 180;
+    const d = 70 + Math.random() * 130;
+    const dx = Math.cos(a) * d, dy = Math.sin(a) * d, spin = Math.random() * 720 - 360;
+    p.animate([
+      { transform: 'translate(-50%, -50%) rotate(0deg)', opacity: 1 },
+      { transform: `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px)) rotate(${spin / 2}deg)`, opacity: 1, offset: 0.55 },
+      { transform: `translate(calc(-50% + ${dx * 1.15}px), calc(-50% + ${dy + 120}px)) rotate(${spin}deg)`, opacity: 0 },
+    ], { duration: 1100 + Math.random() * 500, easing: 'cubic-bezier(.2,.7,.4,1)' }).onfinish = () => p.remove();
+  }
+}
 async function sendReview(r, action, set, buttons) {
   buttons.forEach((b) => { b.disabled = true; });
-  toast(`${DOING[action]} ${r.fb_id}: writing to the sheet, then syncing. This takes a few seconds.`);
+  toastSaving();
   try {
     const res = await fetch(CONFIG.WEBAPP_URL, { method: 'POST',
       body: JSON.stringify({ action, fb_id: r.fb_id, expected: expectedOf(r), set: set || {}, who: savedName() }) });
@@ -937,7 +988,7 @@ async function sendReview(r, action, set, buttons) {
       if (out.conflict) refreshAll();
       return;
     }
-    toast(`${r.fb_id} is now ${out.status}. ${out.sync}`);
+    toastSaved(out.synced);
     refreshAll();
   } catch (e) {
     toast(`Could not reach the sheet (${e.message}). Nothing was changed. Try again, or use Open row.`, true);
@@ -992,7 +1043,38 @@ $('ed-save').addEventListener('click', () => {
 });
 $('ed-cancel').addEventListener('click', () => $('edit-dialog').close());
 $('ed-x').addEventListener('click', () => $('edit-dialog').close());
-$('ed-rubric').addEventListener('click', () => $('edit-dialog').close());
+// Severity definitions open in a small popup inside the editor, so nobody loses their place.
+function closeSevHelp() { $('ed-sevhelp').hidden = true; $('ed-rubric').setAttribute('aria-expanded', 'false'); }
+$('ed-rubric').addEventListener('click', async () => {
+  if (!$('ed-sevhelp').hidden) { closeSevHelp(); return; }
+  let defs = [];
+  try { defs = (await getTaxonomy()).filter((r) => r.field === 'severity').sort((a, b) => SEV_ORDER.indexOf(a.value) - SEV_ORDER.indexOf(b.value)); }
+  catch (err) { toast(`Could not load the definitions: ${err.message}`, true); return; }
+  const x = el('button', { type: 'button', class: 'fd-x', 'aria-label': 'Close definitions' }, '×');
+  x.addEventListener('click', closeSevHelp);
+  $('ed-sevhelp').replaceChildren(el('div', { class: 'sh-head' }, 'Severity levels', x),
+    el('dl', {}, ...defs.flatMap((d) => [el('dt', {}, d.value === 'None' ? 'None' : el('span', { class: `sev ${d.value}` }, d.value)), el('dd', {}, d.definition)])));
+  // Place it just under the link, inside the dialog.
+  const dlg = $('edit-dialog').getBoundingClientRect();
+  const btn = $('ed-rubric').getBoundingClientRect();
+  const help = $('ed-sevhelp');
+  help.hidden = false;
+  const left = Math.max(16, Math.min(btn.left - dlg.left, dlg.width - help.offsetWidth - 16));
+  help.style.left = `${left}px`;
+  help.style.top = `${btn.bottom - dlg.top + 6}px`;
+  $('ed-rubric').setAttribute('aria-expanded', 'true');
+  x.focus();
+});
+// A click anywhere else in the editor closes the definitions.
+$('edit-dialog').addEventListener('click', (e) => {
+  if ($('ed-sevhelp').hidden || $('ed-sevhelp').contains(e.target) || $('ed-rubric').contains(e.target)) return;
+  closeSevHelp();
+}, true);
+// Escape closes the definitions first, not the whole editor.
+$('edit-dialog').addEventListener('cancel', (e) => {
+  if (!$('ed-sevhelp').hidden) { e.preventDefault(); closeSevHelp(); $('ed-rubric').focus(); }
+});
+$('edit-dialog').addEventListener('close', closeSevHelp);
 $('edit-dialog').addEventListener('click', (e) => { if (e.target === $('edit-dialog')) $('edit-dialog').close(); });
 
 // ---------- review queue: "Do these first", then everything else ----------
