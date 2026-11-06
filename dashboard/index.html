@@ -148,6 +148,23 @@ tr.is-new td { background: color-mix(in srgb, var(--bar) 8%, transparent); }
 .live.offline .pulse { background: var(--critical); animation: none; }
 .live.offline { color: var(--critical); }
 .steps { font-size: 13px; color: var(--ink-2); display: grid; gap: 2px; white-space: nowrap; }
+/* ---------- explore column filters ---------- */
+.th-btn { font: inherit; font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: .03em; color: var(--muted);
+  background: none; border: 0; padding: 2px 0; cursor: pointer; white-space: nowrap; }
+.th-btn::after { content: " \25BE"; }
+.th-btn[aria-expanded="true"], .th-btn.active { color: var(--link); }
+.th-btn:focus-visible { outline: 2px solid var(--bar); outline-offset: 2px; }
+.colpanel { border: 1px solid var(--grid); border-radius: 8px; padding: 12px 14px; margin: 0 0 12px; background: var(--surface-2); }
+.colpanel fieldset { border: 0; padding: 0; margin: 0 0 12px; min-width: 0; }
+.colpanel legend { font-size: 13px; font-weight: 600; color: var(--ink-2); padding: 0; margin-bottom: 6px; }
+.opts { display: flex; flex-wrap: wrap; gap: 6px 16px; }
+.opts label { font-size: 14px; display: inline-flex; gap: 6px; align-items: center; cursor: pointer; }
+.opts .cnt { color: var(--muted); font-size: 12px; }
+.panel-foot { display: flex; gap: 8px; justify-content: flex-end; }
+.panel-foot button, .chips .clear { font: inherit; font-size: 13px; border: 1px solid var(--axis); background: var(--surface); color: var(--ink); border-radius: 6px; padding: 4px 10px; cursor: pointer; }
+.chip-x { font: inherit; font-size: 13px; border: 1px solid var(--bar); background: color-mix(in srgb, var(--bar) 10%, transparent); color: var(--ink); border-radius: 14px; padding: 2px 10px; cursor: pointer; }
+.chip-x::after { content: " \00D7"; color: var(--muted); }
+input[type="date"] { font: inherit; font-size: 14px; padding: 4px 6px; border-radius: 6px; border: 1px solid var(--axis); background: var(--surface); color: var(--ink); }
 footer { margin-top: 28px; font-size: 13px; color: var(--ink-2); }
 footer dl { display: grid; grid-template-columns: max-content 1fr; gap: 6px 12px; }
 footer dt { font-weight: 600; }
@@ -249,14 +266,18 @@ footer dt { font-weight: 600; }
   <section role="tabpanel" id="explore" aria-labelledby="tab-explore" hidden>
     <div class="filters">
       <input type="search" id="ex-q" placeholder="Search feedback text" aria-label="Search feedback text">
-      <select id="ex-sent" aria-label="Sentiment"><option value="">Any sentiment</option><option>Positive</option><option>Negative</option><option>Mixed</option></select>
-      <select id="ex-sev" aria-label="Severity"><option value="">Any severity</option><option>Sev1</option><option>Sev2</option><option>Sev3</option><option>None</option></select>
-      <select id="ex-theme" aria-label="Theme"><option value="">Any theme</option></select>
-      <select id="ex-area" aria-label="Product area"><option value="">Any product area</option></select>
     </div>
     <div class="card">
       <p class="sub" id="ex-n">Loading…</p>
-      <div class="tablewrap"><table><thead><tr><th>Date</th><th>Feedback</th><th>Tags</th><th>Who</th><th>Status</th><th></th></tr></thead><tbody id="ex-rows"></tbody></table></div>
+      <div class="chips" id="ex-chips" aria-label="Active filters"></div>
+      <div class="colpanel" id="ex-panel" hidden></div>
+      <div class="tablewrap"><table><thead><tr>
+        <th><button type="button" class="th-btn" data-col="date" aria-expanded="false" aria-controls="ex-panel">Date</button></th>
+        <th>Feedback</th>
+        <th><button type="button" class="th-btn" data-col="tags" aria-expanded="false" aria-controls="ex-panel">Tags</button></th>
+        <th><button type="button" class="th-btn" data-col="who" aria-expanded="false" aria-controls="ex-panel">Who</button></th>
+        <th><button type="button" class="th-btn" data-col="status" aria-expanded="false" aria-controls="ex-panel">Status</button></th>
+        <th></th></tr></thead><tbody id="ex-rows"></tbody></table></div>
     </div>
   </section>
 
@@ -592,24 +613,134 @@ async function loadExplore() {
     drawExplore();
   } catch (e) { fail($('ex-rows'), e); }
 }
-['ex-q', 'ex-sent', 'ex-sev', 'ex-theme', 'ex-area'].forEach((id) => $(id).addEventListener('input', () => all && drawExplore()));
+// Column filters: click a column title to open its panel. Several values in
+// one group mean "any of these"; different groups combine with "and".
+const EX_GROUPS = {
+  sentiment: { label: 'Sentiment', get: (r) => r.sentiment || '', order: ['Positive', 'Negative', 'Mixed'] },
+  severity: { label: 'Severity', get: (r) => r.severity || '', order: ['Sev1', 'Sev2', 'Sev3', 'None'] },
+  theme: { label: 'Theme', get: (r) => r.theme || '' },
+  area: { label: 'Product area', get: (r) => r.product_area || '' },
+  role: { label: 'Role', get: (r) => r.user_role || '', order: ['attorney', 'paralegal', 'case_manager'] },
+  firm: { label: 'Firm size', get: (r) => r.firm_size || '', order: ['small', 'medium', 'large'] },
+  status: { label: 'Status', get: (r) => r.status || '', order: ['Pending', 'Unsure', 'Confirmed', 'Corrected', ''] },
+};
+const EX_COLS = { date: [], tags: ['sentiment', 'severity', 'theme', 'area'], who: ['role', 'firm'], status: ['status'] };
+const COL_TITLES = { date: 'Date', tags: 'Tags', who: 'Who', status: 'Status' };
+const EX = { sort: 'desc', from: '', to: '', open: null };
+for (const g of Object.keys(EX_GROUPS)) EX[g] = new Set();
+const optLabel = (v) => (v === '' ? 'Not tagged yet' : String(v).replace('_', ' '));
+
+$('ex-q').addEventListener('input', () => all && drawExplore());
+document.querySelectorAll('#explore .th-btn').forEach((b) => b.addEventListener('click', () => {
+  EX.open = EX.open === b.dataset.col ? null : b.dataset.col;
+  drawPanel(); drawHeaders();
+}));
+$('ex-panel').addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') { const col = EX.open; EX.open = null; drawPanel(); drawHeaders(); document.querySelector(`#explore .th-btn[data-col="${col}"]`)?.focus(); }
+});
+
+function activeCount(col) {
+  if (col === 'date') return (EX.from ? 1 : 0) + (EX.to ? 1 : 0);
+  return EX_COLS[col].reduce((n, g) => n + EX[g].size, 0);
+}
+function drawHeaders() {
+  document.querySelectorAll('#explore .th-btn').forEach((b) => {
+    const col = b.dataset.col;
+    const n = activeCount(col);
+    b.textContent = `${COL_TITLES[col]}${n ? ` (${n})` : ''}`;
+    b.classList.toggle('active', n > 0);
+    b.setAttribute('aria-expanded', String(EX.open === col));
+  });
+}
+function optionsFor(g) {
+  const counts = new Map();
+  for (const r of all || []) { const v = EX_GROUPS[g].get(r); counts.set(v, (counts.get(v) || 0) + 1); }
+  const order = EX_GROUPS[g].order;
+  // Status always lists every value, so reviewers can see Confirmed (0) and so on.
+  const values = [...new Set([...(order || []), ...counts.keys()])].filter((v) => g === 'status' || counts.has(v) || EX[g].has(v));
+  return values.sort((a, b) => order ? order.indexOf(a) - order.indexOf(b) : String(a).localeCompare(String(b)))
+    .map((v) => ({ v, n: counts.get(v) || 0 }));
+}
+function drawPanel() {
+  const panel = $('ex-panel');
+  if (!EX.open) { panel.hidden = true; panel.replaceChildren(); return; }
+  panel.hidden = false;
+  const done = el('button', { type: 'button' }, 'Done');
+  done.addEventListener('click', () => { EX.open = null; drawPanel(); drawHeaders(); });
+  const clear = el('button', { type: 'button' }, `Clear ${COL_TITLES[EX.open].toLowerCase()} filters`);
+  clear.addEventListener('click', () => {
+    if (EX.open === 'date') { EX.from = ''; EX.to = ''; EX.sort = 'desc'; } else EX_COLS[EX.open].forEach((g) => EX[g].clear());
+    drawPanel(); drawExplore();
+  });
+  let body;
+  if (EX.open === 'date') {
+    const dates = (all || []).map((r) => r.feedback_date).filter(Boolean).sort();
+    const sortSeg = el('div', { class: 'seg', role: 'group', 'aria-label': 'Sort by date' },
+      ...[['desc', 'Newest first'], ['asc', 'Oldest first']].map(([k, t]) => {
+        const b = el('button', { type: 'button', 'aria-pressed': String(EX.sort === k) }, t);
+        b.addEventListener('click', () => { EX.sort = k; drawPanel(); drawExplore(); });
+        return b;
+      }));
+    const dateInput = (key, label) => {
+      const i = el('input', { type: 'date', value: EX[key], min: dates[0], max: dates.at(-1), 'aria-label': label });
+      i.addEventListener('change', () => { EX[key] = i.value; drawExplore(); });
+      return el('label', {}, `${label} `, i);
+    };
+    body = [
+      el('fieldset', {}, el('legend', {}, 'Sort'), sortSeg),
+      el('fieldset', {}, el('legend', {}, `Date range (data runs ${fmtDate(dates[0])} to ${fmtDate(dates.at(-1))})`),
+        el('div', { class: 'opts' }, dateInput('from', 'From'), dateInput('to', 'To'))),
+    ];
+  } else {
+    body = EX_COLS[EX.open].map((g) => el('fieldset', {}, el('legend', {}, EX_GROUPS[g].label),
+      el('div', { class: 'opts' }, ...optionsFor(g).map(({ v, n }) => {
+        const box = el('input', { type: 'checkbox' });
+        box.checked = EX[g].has(v);
+        box.addEventListener('change', () => { if (box.checked) EX[g].add(v); else EX[g].delete(v); drawExplore(); });
+        return el('label', {}, box, optLabel(v), el('span', { class: 'cnt' }, `(${n})`));
+      }))));
+  }
+  panel.replaceChildren(...body, el('div', { class: 'panel-foot' }, clear, done));
+  panel.querySelector('input, button')?.focus();
+}
+function drawChips() {
+  const chips = [];
+  for (const g of Object.keys(EX_GROUPS)) for (const v of EX[g]) {
+    const b = el('button', { type: 'button', class: 'chip-x', 'aria-label': `Remove filter ${EX_GROUPS[g].label}: ${optLabel(v)}` }, `${EX_GROUPS[g].label}: ${optLabel(v)}`);
+    b.addEventListener('click', () => { EX[g].delete(v); drawPanel(); drawExplore(); });
+    chips.push(b);
+  }
+  for (const [key, label] of [['from', 'From'], ['to', 'To']]) if (EX[key]) {
+    const b = el('button', { type: 'button', class: 'chip-x', 'aria-label': `Remove filter ${label} ${EX[key]}` }, `${label}: ${fmtDate(EX[key])}`);
+    b.addEventListener('click', () => { EX[key] = ''; drawPanel(); drawExplore(); });
+    chips.push(b);
+  }
+  if (chips.length > 1) {
+    const all_ = el('button', { type: 'button', class: 'clear' }, 'Clear all');
+    all_.addEventListener('click', () => { Object.keys(EX_GROUPS).forEach((g) => EX[g].clear()); EX.from = ''; EX.to = ''; drawPanel(); drawExplore(); });
+    chips.push(all_);
+  }
+  $('ex-chips').replaceChildren(...chips);
+}
 function drawExplore() {
   const q = $('ex-q').value.trim().toLowerCase();
+  const groups = Object.keys(EX_GROUPS);
   const rows = all.filter((r) =>
     (!q || (r.feedback_text || '').toLowerCase().includes(q)) &&
-    (!$('ex-sent').value || r.sentiment === $('ex-sent').value) &&
-    (!$('ex-sev').value || r.severity === $('ex-sev').value) &&
-    (!$('ex-theme').value || r.theme === $('ex-theme').value) &&
-    (!$('ex-area').value || r.product_area === $('ex-area').value));
+    groups.every((g) => !EX[g].size || EX[g].has(EX_GROUPS[g].get(r))) &&
+    (!EX.from || r.feedback_date >= EX.from) &&
+    (!EX.to || r.feedback_date <= EX.to))
+    .sort((a, b) => (EX.sort === 'asc' ? 1 : -1) * (String(a.feedback_date).localeCompare(String(b.feedback_date)) || String(a.created_at).localeCompare(String(b.created_at))));
+  drawHeaders(); drawChips();
   $('ex-n').textContent = rows.length
-    ? `${rows.length > 200 ? `Showing the first 200 of ${rows.length} matching rows` : `Showing ${rows.length} of ${all.length} rows`}.${rows.length < CONFIG.SMALL ? ' Fewer than 10: directional.' : ''} For counts by theme, use Overview: it groups near-duplicates.`
+    ? `${rows.length > 200 ? `Showing the first 200 of ${rows.length} matching rows` : `Showing ${rows.length} of ${all.length} rows`}.${rows.length < CONFIG.SMALL ? ' Fewer than 10: directional.' : ''} Click a column title to filter. For counts by theme, use Overview: it groups near-duplicates.`
     : 'No rows match these filters.';
   $('ex-rows').replaceChildren(...rows.slice(0, 200).map((r) => el('tr', rowAttrs(r),
     el('td', { class: 'num' }, newBadge(r), fmtDate(r.feedback_date)),
     el('td', { class: 'quote' }, quote(r.feedback_text), r.injection_suspected ? el('div', { class: 'flag' }, 'Possible prompt injection: review by hand') : ''),
     el('td', {}, sevBadge(r.severity), ' ', r.theme || 'Not tagged yet', el('div', { class: 'small' }, [r.product_area, r.sentiment].filter(Boolean).join(' · '))),
     el('td', {}, who(r)),
-    el('td', {}, r.status || ''),
+    el('td', {}, r.status || 'Not tagged yet'),
     el('td', {}, openLink(r.fb_id)))));
 }
 
@@ -626,7 +757,7 @@ async function fillTaxonomySelects() {
     if (s.options.length > 1) return;
     t.filter((r) => r.field === field).forEach((r) => s.append(el('option', {}, r.value)));
   };
-  fill('tr-theme', 'theme'); fill('tr-area', 'product_area'); fill('ex-theme', 'theme'); fill('ex-area', 'product_area');
+  fill('tr-theme', 'theme'); fill('tr-area', 'product_area');
 }
 async function loadRubric() {
   try {
