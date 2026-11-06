@@ -113,3 +113,14 @@ Test scenarios found four real gaps. Each is fixed, unit-tested where the logic 
 ## 2026-11-06: Live dashboard for the demo
 
 The dashboard refreshes itself every 30 seconds, and immediately when its tab comes back into view. It pauses while the tab is in the background, so an unwatched page makes no calls. A **Just in** panel above the tabs lists rows that reached Supabase after the page opened, with "Waiting for tags" until the tagger's suggestions are applied. New rows also get a "New" badge in the Sev1, queue, and Explore tables. Counts in the panel use the database's exact count (`Prefer: count=exact`), not the number of rows fetched. `?since=<ISO time>` shows what arrived after a chosen moment, which helps when rehearsing or presenting from a page opened earlier.
+
+## 2026-11-06: Dashboard usability pass (from the UX review)
+
+A reviewer agent, briefed as a reporting-dashboard designer, walked through jobs for each audience against the live page and wrote `docs/dashboard-ux-review.md`. Built from it, in priority order:
+
+1. **Top issues to fix** on Overview: one row per distinct issue (worst severity, mentions, a quote, roles and firm sizes, links to its rows). Backed by a new SQL function, `top_issues`, with the same filters and issue key as `theme_summary`, so the two always agree (55 complaint mentions, 43 distinct issues). With the Praise toggle it becomes "Most repeated praise", which doubles as the QBR wins list.
+2. **Sev1 tab as proof**: grouped into distinct issues, with when the alert email went out, how long it has been open, a follow-up status pill, and firm-size chips with counts.
+3. **Just in for the live demo**: Sev1s sorted first, a pipeline column (Tagged, Alert emailed, In database), and "+N new" counts on the Sev1 and Review queue tab labels.
+4. **Two bugs the review found:** the Live line stayed green with fresh "last checked" times while every request was failing; it now turns red ("Can't reach the data. Showing data from…") and recovers on its own. The Overview sentiment tiles sat under "for the filters above" but ignore the sentiment toggle; they now have their own honest label. Loading and empty states say so instead of showing blank cards.
+
+**Not taken from the review:** adding `active=is.true` to table reads. The `anon` row-level security policy already returns only active rows. Recommendations 4 to 12 (cross-tab drill-down and shareable filters, a "Do these first" review queue, CSV export, and smaller layout fixes) are deferred.
