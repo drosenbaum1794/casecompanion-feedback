@@ -4,6 +4,7 @@ function onOpen() {
   SpreadsheetApp.getUi()
     .createMenu('Feedback tools')
     .addItem('Sync now', 'syncNow')
+    .addItem('Simulate new day (adds 10 rows)', 'simulateNewDay')
     .addSeparator()
     .addItem('Admin: install triggers (run once)', 'installTriggers')
     .addItem('Admin: create ingest secret', 'createIngestSecret')
