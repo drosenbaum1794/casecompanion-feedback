@@ -532,7 +532,7 @@ function drawFilterBar() {
       'aria-label': `Remove filter ${f.label}${a.ok ? '' : `. ${a.why}`}` }, f.label);
     b.addEventListener('click', () => { f.remove(); filtersChanged(); });
     return b;
-  }) : [el('span', { class: 'small' }, 'None. Click a theme or a segment, or use Filters in Explore.')]));
+  }) : [el('span', { class: 'small' }, 'None. Use Filters in Explore, or click a role or firm size in Segments.')]));
   const ignored = items.filter((f) => !applied(currentTab, f.key).ok).length;
   if (ignored) $('fb-chips').append(el('span', { class: 'small fb-note' }, `${ignored} not used on this tab (dimmed).`));
   $('fb-clear').hidden = items.length < 2;
@@ -673,18 +673,16 @@ async function loadOverview() {
     const shown = pTheme ? rows.filter((r) => r.theme === pTheme) : rows;
     const n = rows[0]?.sample_size || 0;
     $('ov-n').textContent = n
-      ? `n = ${plural(n, 'mention')}, ${fmtDate(rows[0].date_from)} to ${fmtDate(rows[0].date_to)}. Issue counts are per theme. Click a theme to see its rows.${directional(n)}`
+      ? `n = ${plural(n, 'mention')}, ${fmtDate(rows[0].date_from)} to ${fmtDate(rows[0].date_to)}. Issue counts are per theme.${directional(n)}`
       : 'No rows match these filters.';
-    const max = Math.max(1, ...shown.map((r) => Number(r.mentions)));
-    $('ov-themes').replaceChildren(...shown.flatMap((r) => {
-      const tip = `${r.theme}: ${plural(r.distinct_issues, 'distinct issue')}, ${plural(r.mentions, 'mention')} (Sev1 ${r.sev1}, Sev2 ${r.sev2}, Sev3 ${r.sev3}). Click to see these rows.`;
-      const open = () => go('explore', { theme: [r.theme] });
-      const label = el('button', { type: 'button', class: 'linkbtn label', title: tip }, r.theme);
-      label.addEventListener('click', open);
-      const track = el('div', { class: 'track clickable', title: tip, 'aria-hidden': 'true' },
+    // The theme list is a fixed reference: it always lists every theme, and clicking it doesn't change filters.
+    const max = Math.max(1, ...rows.map((r) => Number(r.mentions)));
+    $('ov-themes').replaceChildren(...rows.flatMap((r) => {
+      const tip = `${r.theme}: ${plural(r.distinct_issues, 'distinct issue')}, ${plural(r.mentions, 'mention')} (Sev1 ${r.sev1}, Sev2 ${r.sev2}, Sev3 ${r.sev3}).`;
+      const label = el('div', { class: 'label', title: tip }, r.theme);
+      const track = el('div', { class: 'track', title: tip, 'aria-hidden': 'true' },
         el('div', { class: 'bar ghost', style: `width:${100 * r.mentions / max}%` }),
         el('div', { class: 'bar', style: `width:${100 * r.distinct_issues / max}%` }));
-      track.addEventListener('click', open);
       return [label, track,
         el('div', { class: 'val num' }, `${plural(r.distinct_issues, 'issue')} · ${plural(r.mentions, 'mention')}`, Number(r.sev1) ? ' ' : '', Number(r.sev1) ? sevBadge('Sev1') : '', Number(r.sev1) ? ` ${r.sev1}` : '')];
     }));

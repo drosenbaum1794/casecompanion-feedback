@@ -138,3 +138,7 @@ A reviewer agent, briefed as a reporting-dashboard designer, walked through jobs
 ## 2026-11-06: Filters in one popup, column titles sort
 
 Dan found the in-table filter panels took too much room. Explore now has one **Filters** button, next to the presets. It opens a popup with every filter: date range, sentiment, severity, theme, product area, role, firm size, and status. Changes apply as you click, and the button shows how many rows match. Column titles now only sort. Click once for A to Z (newest first for Date), and again to reverse. Blank values sort last. The sort is kept in the shared link. The header is shorter. The row-count and tagging-accuracy lines are gone, and the live-refresh line sits inside the pipeline health banner. The accuracy numbers are still in `docs/prompt-log.md` and the write-ups.
+
+## 2026-11-06: Theme list stays out of the filters
+
+Dan found the theme list on Overview confusing once it was tied to filters. Clicking a theme set a theme filter, and the filter then shrank the list to that one theme. The list is now a fixed reference. It always shows every theme, and clicking it does nothing. It still follows the Complaints, All, and Praise toggle and the role and firm-size selects above it. To see a theme's rows, use Filters in Explore.
