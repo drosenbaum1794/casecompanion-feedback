@@ -84,3 +84,11 @@ The first scoring run (`docs/prompt-log.md`, v1) showed the blind labels disagre
 **Trends anchor to the data, not today.** The data ends in September 2024, so `theme_trend` defaults to the latest feedback date, and the MCP and dashboard say which date range they cover.
 
 **Row-opener web app is anonymous.** It shows only the row number and a button; the sheet itself still requires access. It runs as Dan, because it has to read the sheet to find the row.
+
+## 2026-11-06: MCP server
+
+**Built as Supabase recommends:** the official MCP TypeScript SDK with its web-standard streamable HTTP transport, inside an edge function, deployed without JWT verification so a Claude connector can reach it. It is stateless, with a fresh server per request and JSON responses. It reads with the anon key only, so the same column grants and RLS that protect the dashboard apply.
+
+**Seventh tool, `list_feedback`, beyond the scope doc's six.** Starter prompt 2 ("show me every Sev1 this month... and whether anyone followed up") and the demo question "what changed today?" need actual rows matching exact filters. `search_feedback` ranks by similarity, which is the wrong tool for "every Sev1," and `get_theme_summary` only counts. The new tool returns at most 50 rows, newest first, with the total that matched.
+
+**Guardrails in the tool descriptions:** use `get_theme_summary` or `get_trend` for counts, never count search results; always report mentions and distinct issues, the sample size, and the date range; call anything under 10 rows directional. Customer text comes back only as `customer_text_untrusted`, with a note in every result. Inputs are validated with zod: enums for segments, an ID pattern, date formats, and a limit cap. A malformed `fb_id` is rejected before it reaches the database.
