@@ -84,6 +84,8 @@ function planEditRow_(current, edited, taxonomy, meta) {
   if (tagEdited) {
     const differsFromClaude = CONFIG.CORRECTION_FIELDS.some((f) => current[f] !== current[`claude_${f}`]);
     if (differsFromClaude && ['', 'Pending', 'Confirmed'].includes(current.status)) writes.status = 'Corrected';
+    // Edited back to exactly Claude's tags: nothing is corrected any more, so it needs review again.
+    if (!differsFromClaude && current.status === 'Corrected') writes.status = 'Pending';
     reviewed = true;
   }
   if (statusEdited && ['Confirmed', 'Corrected', 'Unsure'].includes(current.status)) reviewed = true;

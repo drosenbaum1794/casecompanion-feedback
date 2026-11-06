@@ -56,6 +56,7 @@ function runSync_(trigger) {
     // A missing or renamed header aborts the whole run before anything changes.
     const feedback = readTable_(getSheet_(CONFIG.TABS.FEEDBACK), CONFIG.FEEDBACK_HEADERS);
     step('assign IDs', () => assignIds_(feedback, run));
+    step('re-check invalid values', () => revalidateFlaggedRows_(feedback, run));
     step('apply suggestions', () => applySuggestions_(feedback, run));
     step('Sev1 alerts', () => sendAlerts_(run));
     step('push to Supabase', () => pushChanges_(run));
@@ -119,6 +120,34 @@ function assignIds_(feedback, run) {
   if (run.duplicateIds) {
     run.notes.push(`${run.duplicateIds} rows share an fb_id; fix them by hand (see sync_error).`);
   }
+}
+
+/**
+ * A pasted typo sets sync_error "invalid value in ..." (edit.gs). If the
+ * typo is then removed in a way that doesn't fire onEdit (Undo, or a script),
+ * the flag would stick and the row would never sync. Every sync re-checks
+ * flagged rows and clears the flag, red fill, and note once every tag is valid.
+ * Found by test scenario 6.
+ */
+function revalidateFlaggedRows_(feedback, run) {
+  const flagged = feedback.rows.filter((r) => String(r.values.sync_error || '').startsWith('invalid value'));
+  if (!flagged.length) return;
+  const taxonomy = readTaxonomy_().values;
+  for (const r of flagged) {
+    if (invalidTagFields_(r.values, taxonomy).length) continue;
+    feedback.sheet.getRange(r.rowNum, feedback.col.sync_error).clearContent();
+    r.values.sync_error = '';
+    for (const f of CONFIG.TAG_FIELDS) {
+      const cell = feedback.sheet.getRange(r.rowNum, feedback.col[f]);
+      if (String(cell.getNote()).startsWith(INVALID_NOTE_PREFIX)) cell.setBackground(null).clearNote();
+    }
+    run.notes.push(`${r.values.fb_id}: invalid value was fixed, row syncs again.`);
+  }
+}
+
+/** Tag fields whose value is filled but not in the taxonomy. Pure, so it is unit-tested. */
+function invalidTagFields_(values, taxonomy) {
+  return CONFIG.TAG_FIELDS.filter((f) => values[f] && !(taxonomy[f] && taxonomy[f].has(values[f])));
 }
 
 /** New rows get a follow_up checkbox; the template stops at the last data row. */

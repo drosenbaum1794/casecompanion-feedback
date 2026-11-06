@@ -6,7 +6,7 @@ import vm from 'node:vm';
 import assert from 'node:assert/strict';
 
 const ctx = vm.createContext({ console });
-for (const f of ['config.gs', 'apply.gs', 'edit.gs', 'alerts.gs', 'push.gs']) {
+for (const f of ['config.gs', 'apply.gs', 'edit.gs', 'alerts.gs', 'push.gs', 'sync.gs']) {
   vm.runInContext(readFileSync(new URL(`../apps-script/${f}`, import.meta.url), 'utf8'), ctx, { filename: f });
 }
 const { validateSuggestion_, planRowWrite_, planEditRow_, selectAlertRows_, rowFingerprint_ } = ctx;
@@ -112,6 +112,10 @@ test('re-selecting Claude\'s own value is not a correction', () => {
   const p = planEditRow_({ ...tagged }, ['theme'], tax, m);
   assert.equal('status' in p.writes, false);
 });
+test('editing tags back to Claude\'s values turns Corrected back to Pending', () => {
+  const p = planEditRow_({ ...tagged, status: 'Corrected' }, ['severity'], tax, m);
+  assert.equal(p.writes.status, 'Pending');
+});
 test('setting status Confirmed stamps the reviewer, nothing else', () => {
   const p = planEditRow_({ ...tagged, status: 'Confirmed' }, ['status'], tax, m);
   assert.equal(p.writes.reviewed_by, 'rep@example.com');
@@ -167,5 +171,14 @@ test('fingerprint changes when any synced field changes, ignores whitespace', ()
   assert.notEqual(rowFingerprint_({ a: '1', b: '2' }, h), rowFingerprint_({ a: '1', b: '3' }, h));
   assert.notEqual(rowFingerprint_({ a: '12', b: '' }, h), rowFingerprint_({ a: '1', b: '2' }, h));
 });
+
+console.log('invalidTagFields_ (sync re-check after Undo)');
+const { invalidTagFields_ } = ctx;
+test('a fixed row has no invalid fields, so its flag clears', () =>
+  assert.deepEqual([...invalidTagFields_({ ...tagged }, taxonomy)], []));
+test('a row still holding a typo stays flagged', () =>
+  assert.deepEqual([...invalidTagFields_({ ...tagged, theme: 'Acuracy' }, taxonomy)], ['theme']));
+test('empty tags are not invalid (untagged rows)', () =>
+  assert.deepEqual([...invalidTagFields_({ sentiment: '', theme: '', product_area: '', severity: '', confidence: '' }, taxonomy)], []));
 
 console.log(`\n${passed} tests passed`);
