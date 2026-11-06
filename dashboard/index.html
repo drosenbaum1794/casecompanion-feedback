@@ -54,7 +54,6 @@ h3 { font-size: 14px; margin: 18px 0 8px; font-weight: 650; color: var(--ink-2);
 .banner.green .dot { background: var(--good); }
 .banner.amber .dot { background: var(--warning); }
 .banner.red .dot { background: var(--critical); }
-.facts { display: grid; gap: 4px; margin: 0 0 16px; font-size: 14px; color: var(--ink-2); }
 
 /* ---------- tabs ---------- */
 nav[role="tablist"] { display: flex; flex-wrap: wrap; gap: 4px; border-bottom: 1px solid var(--grid); margin-bottom: 18px; }
@@ -115,13 +114,8 @@ svg text { fill: var(--muted); font-size: 11px; }
 .empty { color: var(--muted); font-size: 14px; padding: 8px 0; }
 .err { color: var(--critical); }
 /* ---------- live ---------- */
-.live { display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: center; font-size: 13px; color: var(--ink-2); margin: -4px 0 14px; }
-.live .pulse { width: 8px; height: 8px; border-radius: 50%; background: var(--good); flex: none; }
-@media (prefers-reduced-motion: no-preference) {
-  .live .pulse { animation: pulse 2s ease-in-out infinite; }
-  @keyframes pulse { 50% { opacity: .35; } }
-}
-.live.paused .pulse { background: var(--axis); animation: none; }
+.banner { flex-wrap: wrap; }
+.live { display: inline-flex; flex-wrap: wrap; gap: 6px 10px; align-items: center; font-size: 13px; color: var(--muted); margin-left: auto; }
 .live button { font: inherit; font-size: 13px; border: 1px solid var(--axis); background: var(--surface); color: var(--ink); border-radius: 6px; padding: 3px 9px; cursor: pointer; }
 .newb { display: inline-block; font-size: 11px; font-weight: 700; letter-spacing: .03em; text-transform: uppercase; color: var(--link);
   border: 1px solid currentColor; border-radius: 4px; padding: 0 4px; margin-right: 6px; vertical-align: 1px; }
@@ -145,23 +139,41 @@ tr.is-new td { background: color-mix(in srgb, var(--bar) 8%, transparent); }
 .pill.Contacted { border-color: var(--bar); }
 .pill.Resolved { border-color: var(--good); color: var(--good-ink); }
 .tabnew { font-size: 11px; font-weight: 700; color: var(--link); margin-left: 4px; }
-.live.offline .pulse { background: var(--critical); animation: none; }
 .live.offline { color: var(--critical); }
 .steps { font-size: 13px; color: var(--ink-2); display: grid; gap: 2px; white-space: nowrap; }
 /* ---------- explore column filters ---------- */
 .th-btn { font: inherit; font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: .03em; color: var(--muted);
   background: none; border: 0; padding: 2px 0; cursor: pointer; white-space: nowrap; }
-.th-btn::after { content: " \25BE"; }
-.th-btn[aria-expanded="true"], .th-btn.active { color: var(--link); }
+.th-btn::after { content: " \2195"; opacity: .5; }
+.th-btn[data-dir="asc"]::after { content: " \25B2"; opacity: 1; }
+.th-btn[data-dir="desc"]::after { content: " \25BC"; opacity: 1; }
+.th-btn[data-dir] { color: var(--link); }
 .th-btn:focus-visible { outline: 2px solid var(--bar); outline-offset: 2px; }
-.colpanel { border: 1px solid var(--grid); border-radius: 8px; padding: 12px 14px; margin: 0 0 12px; background: var(--surface-2); }
-.colpanel fieldset { border: 0; padding: 0; margin: 0 0 12px; min-width: 0; }
-.colpanel legend { font-size: 13px; font-weight: 600; color: var(--ink-2); padding: 0; margin-bottom: 6px; }
+.filters-btn { font: inherit; font-size: 13px; border: 1px solid var(--bar); background: var(--surface); color: var(--link); border-radius: 6px;
+  padding: 4px 12px; cursor: pointer; font-weight: 600; white-space: nowrap; }
+.filters-btn.active { background: var(--bar); color: #fff; }
+.filters-btn:focus-visible { outline: 2px solid var(--bar); outline-offset: 2px; }
+.fdialog { width: min(680px, calc(100vw - 32px)); max-height: min(80vh, 720px); padding: 0; border: 1px solid var(--ring); border-radius: 12px;
+  background: var(--surface); color: var(--ink); box-shadow: 0 12px 40px rgba(0,0,0,.25); }
+.fdialog[open] { display: flex; flex-direction: column; }
+.fdialog::backdrop { background: rgba(0,0,0,.35); }
+.fd-head, .fd-foot { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 12px 16px; }
+.fd-head { border-bottom: 1px solid var(--grid); }
+.fd-foot { border-top: 1px solid var(--grid); }
+.fd-x { font: inherit; font-size: 22px; line-height: 1; background: none; border: 0; color: var(--muted); cursor: pointer; padding: 2px 6px; }
+.fd-body { overflow-y: auto; padding: 14px 16px; display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 4px 20px; }
+.fd-body fieldset { border: 0; padding: 0; margin: 0 0 12px; min-width: 0; }
+.fd-body fieldset.wide { grid-column: 1 / -1; }
+.fd-body legend { font-size: 13px; font-weight: 600; color: var(--ink-2); padding: 0; margin-bottom: 6px; }
+.fd-body .opts { flex-direction: column; gap: 4px; }
+.fd-body fieldset.wide .opts { flex-direction: row; gap: 6px 16px; }
+.fd-foot button { font: inherit; font-size: 14px; border: 1px solid var(--axis); background: var(--surface); color: var(--ink); border-radius: 6px; padding: 6px 14px; cursor: pointer; }
+.fd-foot button.primary { background: var(--bar); border-color: var(--bar); color: #fff; font-weight: 600; }
+.fd-x:focus-visible, .fd-foot button:focus-visible { outline: 2px solid var(--bar); outline-offset: 2px; }
 .opts { display: flex; flex-wrap: wrap; gap: 6px 16px; }
 .opts label { font-size: 14px; display: inline-flex; gap: 6px; align-items: center; cursor: pointer; }
 .opts .cnt { color: var(--muted); font-size: 12px; }
-.panel-foot { display: flex; gap: 8px; justify-content: flex-end; }
-.panel-foot button, .chips .clear { font: inherit; font-size: 13px; border: 1px solid var(--axis); background: var(--surface); color: var(--ink); border-radius: 6px; padding: 4px 10px; cursor: pointer; }
+.chips .clear { font: inherit; font-size: 13px; border: 1px solid var(--axis); background: var(--surface); color: var(--ink); border-radius: 6px; padding: 4px 10px; cursor: pointer; }
 .chip-x { font: inherit; font-size: 13px; border: 1px solid var(--bar); background: color-mix(in srgb, var(--bar) 10%, transparent); color: var(--ink); border-radius: 14px; padding: 2px 10px; cursor: pointer; }
 .chip-x::after { content: " \00D7"; color: var(--muted); }
 input[type="date"] { font: inherit; font-size: 14px; padding: 4px 6px; border-radius: 6px; border: 1px solid var(--axis); background: var(--surface); color: var(--ink); }
@@ -213,12 +225,10 @@ tr.baseline td { font-weight: 650; background: var(--surface-2); }
 <body>
 <div class="wrap">
   <h1>CaseCompanion feedback</h1>
-  <div id="health" class="banner" role="status"><span class="dot" aria-hidden="true"></span><span>Checking pipeline health…</span></div>
-  <div class="facts">
-    <div id="sample"></div>
-    <div id="trust"></div>
+  <div id="health" class="banner">
+    <span class="dot" aria-hidden="true"></span><span id="health-text" role="status">Checking pipeline health…</span>
+    <span class="live" id="live"><span id="live-text">Live</span><button type="button" id="refresh-now">Refresh now</button></span>
   </div>
-  <div class="live" id="live" role="status"><span class="pulse" aria-hidden="true"></span><span id="live-text">Live</span><button type="button" id="refresh-now">Refresh now</button></div>
 
   <div class="card" id="justin" hidden aria-live="polite">
     <h2>Just in</h2>
@@ -328,16 +338,21 @@ tr.baseline td { font-weight: 650; background: var(--surface-2); }
         <button type="button" data-preset="wins">QBR wins: time saved</button>
         <button type="button" data-preset="review">Waiting for review</button>
       </span>
+      <button type="button" class="filters-btn" id="ex-filters" aria-haspopup="dialog" aria-controls="ex-dialog">Filters</button>
     </div>
+    <dialog id="ex-dialog" class="fdialog" aria-labelledby="exd-title">
+      <div class="fd-head"><h2 id="exd-title">Filters</h2><button type="button" class="fd-x" id="exd-close" aria-label="Close filters">&times;</button></div>
+      <div class="fd-body" id="exd-body"></div>
+      <div class="fd-foot"><button type="button" id="exd-clear">Clear all</button><button type="button" class="primary" id="exd-done">Show rows</button></div>
+    </dialog>
     <div class="card">
       <div class="cardhead"><p class="sub" id="ex-n">Loading…</p><button type="button" class="csv" id="ex-csv">Download CSV</button></div>
-      <div class="colpanel" id="ex-panel" hidden></div>
       <div class="tablewrap"><table class="stack"><thead><tr>
-        <th><button type="button" class="th-btn" data-col="date" aria-expanded="false" aria-controls="ex-panel">Date</button></th>
-        <th>Feedback</th>
-        <th><button type="button" class="th-btn" data-col="tags" aria-expanded="false" aria-controls="ex-panel">Tags</button></th>
-        <th><button type="button" class="th-btn" data-col="who" aria-expanded="false" aria-controls="ex-panel">Who</button></th>
-        <th><button type="button" class="th-btn" data-col="status" aria-expanded="false" aria-controls="ex-panel">Status</button></th>
+        <th><button type="button" class="th-btn" data-col="date">Date</button></th>
+        <th><button type="button" class="th-btn" data-col="feedback">Feedback</button></th>
+        <th><button type="button" class="th-btn" data-col="tags">Tags</button></th>
+        <th><button type="button" class="th-btn" data-col="who">Who</button></th>
+        <th><button type="button" class="th-btn" data-col="status">Status</button></th>
         <th></th></tr></thead><tbody id="ex-rows"></tbody></table></div>
     </div>
   </section>
@@ -354,8 +369,6 @@ const CONFIG = {
   SUPABASE_URL: 'https://rienopvbkpukefaeynhb.supabase.co',
   ANON_KEY: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJpZW5vcHZia3B1a2VmYWV5bmhiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTM5NTIyNjIsImV4cCI6MjEwOTUyODI2Mn0.UtcqV9GFaEDU05uezWwTSnBCIlwthj2AMbW7Qh99GJ0',
   WEBAPP_URL: 'https://script.google.com/macros/s/AKfycbyrw_Qrh-TMNRUM5he3VkmEhVkUvVKyvD3MwQ7ApR4cVUa2AIdXGqyave8kpHWTxI7LYQ/exec',
-  // From docs/prompt-log.md: production v2 on the 40-row eval set, adjudicated labels.
-  EVAL: { rows: 40, allFour: 26, sev1Caught: 7, sev1Total: 7 },
   SMALL: 10,
   REFRESH_MS: 30000,
 };
@@ -443,7 +456,8 @@ const GROUPS = {
   status: { label: 'Status', get: (r) => r.status || '', order: ['Pending', 'Unsure', 'Confirmed', 'Corrected', ''] },
 };
 const GROUP_KEYS = Object.keys(GROUPS);
-const F = { q: '', from: '', to: '', sort: 'desc' };
+const DEFAULT_SORT = 'date:desc';
+const F = { q: '', from: '', to: '', sort: DEFAULT_SORT };
 for (const g of GROUP_KEYS) F[g] = new Set();
 const optLabel = (v) => (v === '' ? 'Not tagged yet' : String(v).replace('_', ' '));
 const TAB_NAMES = { overview: 'Overview', sev1: 'The Sev1 tab', segments: 'Segments', trend: 'Trend', queue: 'The review queue', explore: 'Explore' };
@@ -487,7 +501,7 @@ function filtersToQuery() {
   if (F.q) p.set('q', F.q);
   if (F.from) p.set('from', F.from);
   if (F.to) p.set('to', F.to);
-  if (F.sort !== 'desc') p.set('sort', F.sort);
+  if (F.sort !== DEFAULT_SORT) p.set('sort', F.sort);
   return p.toString();
 }
 function queryToFilters(qs) {
@@ -496,7 +510,7 @@ function queryToFilters(qs) {
   F.q = p.get('q') || '';
   F.from = /^\d{4}-\d{2}-\d{2}$/.test(p.get('from') || '') ? p.get('from') : '';
   F.to = /^\d{4}-\d{2}-\d{2}$/.test(p.get('to') || '') ? p.get('to') : '';
-  F.sort = p.get('sort') === 'asc' ? 'asc' : 'desc';
+  F.sort = /^(date|feedback|tags|who|status):(asc|desc)$/.test(p.get('sort') || '') ? p.get('sort') : DEFAULT_SORT;
 }
 function writeUrl() {
   const qs = filtersToQuery();
@@ -518,7 +532,7 @@ function drawFilterBar() {
       'aria-label': `Remove filter ${f.label}${a.ok ? '' : `. ${a.why}`}` }, f.label);
     b.addEventListener('click', () => { f.remove(); filtersChanged(); });
     return b;
-  }) : [el('span', { class: 'small' }, 'None. Click a theme, a segment, or a column title in Explore to filter.')]));
+  }) : [el('span', { class: 'small' }, 'None. Click a theme or a segment, or use Filters in Explore.')]));
   const ignored = items.filter((f) => !applied(currentTab, f.key).ok).length;
   if (ignored) $('fb-chips').append(el('span', { class: 'small fb-note' }, `${ignored} not used on this tab (dimmed).`));
   $('fb-clear').hidden = items.length < 2;
@@ -610,7 +624,7 @@ function downloadCsv(name, rows) {
   setTimeout(() => URL.revokeObjectURL(a.href), 1000);
 }
 
-// ---------- header: health, sample, trust ----------
+// ---------- header: pipeline health ----------
 let dataTo = null;
 async function loadHeader() {
   try {
@@ -624,16 +638,11 @@ async function loadHeader() {
     const label = { green: 'Healthy.', amber: 'Delayed.', red: 'Needs attention.' }[cls];
     const extra = failing ? ' The last sync reported an error; see the sheet\'s Health tab.' : h.errors_24h ? ` ${h.errors_24h} failed sync(s) in the last 24 hours.` : '';
     $('health').className = `banner ${cls}`;
-    $('health').replaceChildren(el('span', { class: 'dot', 'aria-hidden': 'true' }), el('span', {}, `${label} Last successful sync ${ago}.${extra}`));
-    $('sample').textContent = `Showing ${h.rows_active} feedback rows, ${fmtDate(h.date_range.from)} to ${fmtDate(h.date_range.to)}. ${h.queue_size} waiting for review.`;
-    const e = CONFIG.EVAL;
-    const reviewed = h.reviewed_count || 0;
-    const corr = reviewed ? `Humans corrected ${Math.round(100 * (h.override_rate?.any_field || 0))}% of ${reviewed} reviewed rows.` : 'No rows reviewed by a human yet.';
-    $('trust').textContent = `Tagging accuracy: on a 40-row hand-labeled test set, Claude caught ${e.sev1Caught} of ${e.sev1Total} Sev1s and matched all four tags on ${e.allFour} of ${e.rows} rows. ${corr}`;
+    $('health-text').textContent = `${label} Last successful sync ${ago}.${extra}`;
     return true;
   } catch (err) {
     $('health').className = 'banner red';
-    $('health').replaceChildren(el('span', { class: 'dot', 'aria-hidden': 'true' }), el('span', {}, `Cannot reach the data: ${err.message}`));
+    $('health-text').textContent = `Cannot reach the data: ${err.message}`;
     return false;
   }
 }
@@ -903,24 +912,14 @@ $('q-csv').addEventListener('click', () => downloadCsv('review-queue', queueShow
 // ---------- explore ----------
 let all = null;
 let exShown = [];
-let exOpen = null;
 async function loadExplore() {
   try {
     all = await rest(`feedback?select=${COLS}&${NOT_ARCHIVED}&order=feedback_date.desc`);
     drawExplore();
   } catch (e) { fail($('ex-rows'), e); }
 }
-const EX_COLS = { date: [], tags: ['sentiment', 'severity', 'theme', 'area'], who: ['role', 'firm'], status: ['status'] };
-const COL_TITLES = { date: 'Date', tags: 'Tags', who: 'Who', status: 'Status' };
 let qTimer = null;
 $('ex-q').addEventListener('input', () => { clearTimeout(qTimer); qTimer = setTimeout(() => { F.q = $('ex-q').value; filtersChanged(); }, 200); });
-document.querySelectorAll('#explore .th-btn').forEach((b) => b.addEventListener('click', () => {
-  exOpen = exOpen === b.dataset.col ? null : b.dataset.col;
-  drawPanel(); drawHeaders();
-}));
-$('ex-panel').addEventListener('keydown', (e) => {
-  if (e.key === 'Escape') { const col = exOpen; exOpen = null; drawPanel(); drawHeaders(); document.querySelector(`#explore .th-btn[data-col="${col}"]`)?.focus(); }
-});
 const PRESETS = {
   sev1: { severity: ['Sev1'] },
   wins: { sentiment: ['Positive'], q: 'time' },
@@ -932,18 +931,55 @@ document.querySelectorAll('#explore [data-preset]').forEach((b) => b.addEventLis
   for (const [k, v] of Object.entries(PRESETS[b.dataset.preset])) { if (k === 'q') F.q = v; else F[k] = new Set(v); }
   filtersChanged();
 }));
-function activeCount(col) {
-  if (col === 'date') return (F.from ? 1 : 0) + (F.to ? 1 : 0);
-  return EX_COLS[col].reduce((n, g) => n + F[g].size, 0);
-}
+
+// Column titles sort. Click again to reverse. Blank values always sort last.
+const SORT_KEYS = {
+  date: (r) => `${r.feedback_date || ''} ${r.created_at || ''}`,
+  feedback: (r) => (r.feedback_text || '').replace(/^\W+/, '').toLowerCase(),
+  tags: (r) => (r.theme || '').toLowerCase(),
+  who: (r) => `${r.user_role || ''} ${r.firm_size || ''}`.trim(),
+  status: (r) => (r.status || '').toLowerCase(),
+};
+const SORT_WORDS = { date: ['oldest first', 'newest first'], other: ['A to Z', 'Z to A'] };
+const sortWords = (col, dir) => (col === 'date' ? SORT_WORDS.date : SORT_WORDS.other)[dir === 'asc' ? 0 : 1];
+document.querySelectorAll('#explore .th-btn').forEach((b) => b.addEventListener('click', () => {
+  const [col, dir] = F.sort.split(':');
+  const c = b.dataset.col;
+  F.sort = c === col ? `${c}:${dir === 'asc' ? 'desc' : 'asc'}` : `${c}:${c === 'date' ? 'desc' : 'asc'}`;
+  filtersChanged();
+}));
 function drawHeaders() {
+  const [col, dir] = F.sort.split(':');
   document.querySelectorAll('#explore .th-btn').forEach((b) => {
-    const col = b.dataset.col;
-    const n = activeCount(col);
-    b.textContent = `${COL_TITLES[col]}${n ? ` (${n})` : ''}`;
-    b.classList.toggle('active', n > 0);
-    b.setAttribute('aria-expanded', String(exOpen === col));
+    const on = b.dataset.col === col;
+    const th = b.closest('th');
+    if (on) { b.dataset.dir = dir; th.setAttribute('aria-sort', dir === 'asc' ? 'ascending' : 'descending'); }
+    else { delete b.dataset.dir; th.removeAttribute('aria-sort'); }
+    const next = on ? (dir === 'asc' ? 'desc' : 'asc') : (b.dataset.col === 'date' ? 'desc' : 'asc');
+    b.title = `Sort ${sortWords(b.dataset.col, next)}`;
   });
+}
+function sortRows(rows) {
+  const [col, dir] = F.sort.split(':');
+  const key = SORT_KEYS[col] || SORT_KEYS.date;
+  const m = dir === 'asc' ? 1 : -1;
+  return rows.sort((a, b) => {
+    const x = key(a), y = key(b);
+    if (!x !== !y) return x ? -1 : 1;
+    return m * x.localeCompare(y) || String(b.feedback_date).localeCompare(String(a.feedback_date));
+  });
+}
+
+// One Filters button opens every filter in a dialog. Changes apply as you click.
+function filterCount() { return GROUP_KEYS.reduce((n, g) => n + F[g].size, 0) + (F.from ? 1 : 0) + (F.to ? 1 : 0); }
+function drawFiltersButton() {
+  const n = filterCount();
+  $('ex-filters').textContent = n ? `Filters (${n})` : 'Filters';
+  $('ex-filters').classList.toggle('active', n > 0);
+  if ($('ex-dialog').open && all) {
+    const m = all.filter((r) => matches(r, 'explore')).length;
+    $('exd-done').textContent = `Show ${plural(m, 'row')}`;
+  }
 }
 function optionsFor(g) {
   const counts = new Map();
@@ -954,55 +990,49 @@ function optionsFor(g) {
   return values.sort((a, b) => order ? order.indexOf(a) - order.indexOf(b) : String(a).localeCompare(String(b)))
     .map((v) => ({ v, n: counts.get(v) || 0 }));
 }
-function drawPanel() {
-  const panel = $('ex-panel');
-  if (!exOpen) { panel.hidden = true; panel.replaceChildren(); return; }
-  panel.hidden = false;
-  const done = el('button', { type: 'button' }, 'Done');
-  done.addEventListener('click', () => { exOpen = null; drawPanel(); drawHeaders(); });
-  const clear = el('button', { type: 'button' }, `Clear ${COL_TITLES[exOpen].toLowerCase()} filters`);
-  clear.addEventListener('click', () => {
-    if (exOpen === 'date') { F.from = ''; F.to = ''; F.sort = 'desc'; } else EX_COLS[exOpen].forEach((g) => F[g].clear());
-    drawPanel(); filtersChanged();
-  });
-  let body;
-  if (exOpen === 'date') {
-    const dates = (all || []).map((r) => r.feedback_date).filter(Boolean).sort();
-    const sortSeg = el('div', { class: 'seg', role: 'group', 'aria-label': 'Sort by date' },
-      ...[['desc', 'Newest first'], ['asc', 'Oldest first']].map(([k, t]) => {
-        const b = el('button', { type: 'button', 'aria-pressed': String(F.sort === k) }, t);
-        b.addEventListener('click', () => { F.sort = k; drawPanel(); filtersChanged(); });
-        return b;
-      }));
-    const dateInput = (key, label) => {
-      const i = el('input', { type: 'date', value: F[key], min: dates[0], max: dates.at(-1), 'aria-label': label });
-      i.addEventListener('change', () => { F[key] = i.value; filtersChanged(); });
-      return el('label', {}, `${label} `, i);
-    };
-    body = [
-      el('fieldset', {}, el('legend', {}, 'Sort'), sortSeg),
-      el('fieldset', {}, el('legend', {}, `Date range (data runs ${fmtDate(dates[0])} to ${fmtDate(dates.at(-1))})`),
-        el('div', { class: 'opts' }, dateInput('from', 'From'), dateInput('to', 'To'))),
-    ];
-  } else {
-    body = EX_COLS[exOpen].map((g) => el('fieldset', {}, el('legend', {}, GROUPS[g].label),
-      el('div', { class: 'opts' }, ...optionsFor(g).map(({ v, n }) => {
-        const box = el('input', { type: 'checkbox' });
-        box.checked = F[g].has(v);
-        box.addEventListener('change', () => { if (box.checked) F[g].add(v); else F[g].delete(v); filtersChanged(); });
-        return el('label', {}, box, optLabel(v), el('span', { class: 'cnt' }, `(${n})`));
-      }))));
-  }
-  panel.replaceChildren(...body, el('div', { class: 'panel-foot' }, clear, done));
-  panel.querySelector('input, button')?.focus();
+function drawDialog() {
+  const dates = (all || []).map((r) => r.feedback_date).filter(Boolean).sort();
+  const dateInput = (key, label) => {
+    const i = el('input', { type: 'date', value: F[key], min: dates[0], max: dates.at(-1), 'aria-label': label });
+    i.addEventListener('change', () => { F[key] = i.value; filtersChanged(); });
+    return el('label', {}, `${label} `, i);
+  };
+  const group = (g) => el('fieldset', {}, el('legend', {}, GROUPS[g].label),
+    el('div', { class: 'opts' }, ...optionsFor(g).map(({ v, n }) => {
+      const box = el('input', { type: 'checkbox', 'data-g': g });
+      box.checked = F[g].has(v);
+      box.addEventListener('change', () => { if (box.checked) F[g].add(v); else F[g].delete(v); filtersChanged(); });
+      return el('label', {}, box, optLabel(v), el('span', { class: 'cnt' }, `(${n})`));
+    })));
+  $('exd-body').replaceChildren(
+    el('fieldset', { class: 'wide' }, el('legend', {}, dates.length ? `Date range (data runs ${fmtDate(dates[0])} to ${fmtDate(dates.at(-1))})` : 'Date range'),
+      el('div', { class: 'opts' }, dateInput('from', 'From'), dateInput('to', 'To'))),
+    ...['sentiment', 'severity', 'theme', 'area', 'role', 'firm', 'status'].map(group));
+  drawFiltersButton();
 }
+$('ex-filters').addEventListener('click', () => {
+  if (!all) return;
+  drawDialog();
+  $('ex-dialog').showModal();
+  drawFiltersButton();
+});
+$('exd-close').addEventListener('click', () => $('ex-dialog').close());
+$('exd-done').addEventListener('click', () => $('ex-dialog').close());
+$('exd-clear').addEventListener('click', () => {
+  for (const g of GROUP_KEYS) F[g].clear();
+  F.from = ''; F.to = '';
+  filtersChanged(); drawDialog();
+});
+// A click on the dimmed backdrop closes the dialog.
+$('ex-dialog').addEventListener('click', (e) => { if (e.target === $('ex-dialog')) $('ex-dialog').close(); });
+$('ex-dialog').addEventListener('close', () => $('ex-filters').focus());
+
 function drawExplore() {
-  const rows = all.filter((r) => matches(r, 'explore'))
-    .sort((a, b) => (F.sort === 'asc' ? 1 : -1) * (String(a.feedback_date).localeCompare(String(b.feedback_date)) || String(a.created_at).localeCompare(String(b.created_at))));
+  const rows = sortRows(all.filter((r) => matches(r, 'explore')));
   exShown = rows;
-  drawHeaders();
+  drawHeaders(); drawFiltersButton();
   $('ex-n').textContent = rows.length
-    ? `${rows.length > 200 ? `Showing the first 200 of ${rows.length} matching rows (the CSV has all of them)` : `Showing ${rows.length} of ${all.length} rows`}.${rows.length < CONFIG.SMALL ? ' Fewer than 10: directional.' : ''} Click a column title to filter. For counts by theme, use Overview: it groups near-duplicates.`
+    ? `${rows.length > 200 ? `Showing the first 200 of ${rows.length} matching rows (the CSV has all of them)` : `Showing ${rows.length} of ${all.length} rows`}.${rows.length < CONFIG.SMALL ? ' Fewer than 10: directional.' : ''} Click a column title to sort. For counts by theme, use Overview: it groups near-duplicates.`
     : 'No rows match these filters.';
   $('ex-rows').replaceChildren(...rows.slice(0, 200).map((r) => el('tr', rowAttrs(r),
     el('td', { class: 'num' }, newBadge(r), fmtDate(r.feedback_date)),
