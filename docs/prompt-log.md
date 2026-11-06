@@ -36,3 +36,20 @@ Scores are against the **adjudicated** labels (`docs/eval-adjudication.md`), wit
 **Calibration is weak.** All-four-field agreement was 69% at High (29 rows), 67% at Medium (9), and 50% at Low (2). Low is slightly worse, but High and Medium are about the same. Self-reported confidence isn't a reliable signal on its own here. The review queue still sorts Low first, and the alert logic doesn't depend on confidence except for the "possible Sev1" rule.
 
 **Decision: ship v2.** It meets the checkpoint (Sev1 recall 7/7 on the adjudicated labels). A v3 aimed at Mixed sentiment would be chasing noise, since v1 got all 4 of those rows right with the same rule. The production number comes from the real scheduled task scored in the sheet, per the scope doc.
+
+### Production backfill (2026-11-06): the number to report
+
+The real scheduled task (Claude app, Haiku 5.5, prompt v2, Google Sheets connector) tagged all 100 rows in two runs. Apps Script applied 100 of 100 suggestions: 0 rejected, 0 partly applied. Scored on the 40 eval rows, from the Feedback tab:
+
+| Run | Sentiment | Theme | Product area | Severity | All 4 fields | Sev1 recall | Sev1 precision |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| Production v2, adjudicated labels | 37/40 | 34/40 | 36/40 | 34/40 | 26/40 | **7/7** | 7/8 |
+| Production v2, blind labels | 35/40 | 27/40 | 20/40 | 23/38 | 11/38 | 1/1 | 1/8 |
+
+Production matches the offline v2 run within 1 row on every field, so the subagent eval was a fair stand-in for the real task.
+
+**Spot check of 10 non-eval rows** (U14507, U14606, U12801, U14672, U13781, U13022, U13979, U14969, U12412, U14177): theme, product area, and severity were right on all 10. **Sentiment was wrong on 3 of 10** (U14606, U13979, U14969). All three open with praise ("creates well-structured...", "creates compelling narratives...") and then make a request, so the taxonomy says Mixed, but they were tagged Negative.
+
+**Correction to the v2 notes:** I called the Mixed-sentiment misses run-to-run noise. Production shows a consistent pattern instead: when the praise is a short clause before "but", Haiku calls it Negative. It doesn't affect severity, alerts, or theme. It does undercount Mixed in the sentiment split, so Part 1 reports Negative and Mixed together as "complaints." Candidate v3 fix: one explicit rule with the "X is good but Y" pattern. It applies to new rows only, and existing rows get corrected in review.
+
+**Runtime:** the 100-row apply took 259 s against the 270 s budget, because it writes cell by cell with a re-check on each human cell. At about 10 rows a day a run takes a few seconds. A bigger backfill would stop at the budget and continue on the next sync, which is the designed behavior.
