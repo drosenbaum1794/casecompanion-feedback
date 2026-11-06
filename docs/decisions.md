@@ -14,3 +14,13 @@ Design choices and why, logged as they happen. Newest at the bottom.
 - That run finished on its own with no approval prompt. It cost about $0.01 on Haiku and took about 12 seconds.
 - **Decision:** the tagging task is created in the Claude app's scheduled tasks screen, with the Google Sheets connector turned on there, as the goals doc already planned. The connectivity test (read one cell, append one row to the Scratch tab) gets repeated there before Day 1 tagging.
 - **Result (Claude app, Haiku, Google Sheets connector on):** passed. The task read D2 and appended exactly one row to Scratch at 13:41 UTC (`Discovery motion templates need updating`, `test ok`). It ran without asking for approval. Scratch tab deleted afterwards. The riskiest assumption in the plan holds: a scheduled task can read the sheet and append to a staging tab unattended.
+
+## 2026-11-06: Day 1 sequencing and eval set
+
+**Eval rows chosen before taxonomy examples.** The tagging task reads the Taxonomy tab, so its examples act as few-shot examples. Nearly every example in the scope doc's draft taxonomy and severity rubric was a row that belongs in the eval set (the Sev1s, the mislabeled bug reports, the near-duplicate pairs). Using them would leak into the eval score. So the 40 eval rows were picked first, and taxonomy examples come only from rows outside the eval set and outside their near-duplicate twins. Themes with no eligible row (Performance, Training and docs, and one Integration request slot) use hand-written examples marked illustrative.
+
+**Eval set composition (40 rows).** Stratified, not random: 8 likely Sev1 candidates, the 4 bug reports that are praise, both copies of 8 near-duplicate pairs, 6 severity edge cases, and 13 rows for theme and sentiment coverage. Every channel, role, and firm size appears. It is deliberately weighted toward hard cases: 9 of 40 rows are pure praise, against 45 of 100 in the full data, and attorneys are 14 of 40 against 53 of 100. Accuracy on this set will be lower than on a random sample, and the write-up says so. Selection notes are in `data/eval-selection-notes.md` (gitignored), which Dan should not open until he has labeled the rows.
+
+**Part 1 draft moved after labeling.** The scope doc lists the Part 1 draft first on Day 1. But a draft would describe which issues look like Sev1s, and reading it would bias Dan's blind labels. Claude drafts Part 1 after Dan finishes labeling.
+
+**Taxonomy proposal is a review, not an independent proposal.** Claude had already read the draft taxonomy before reading the data, so `docs/taxonomy-v1-proposal.md` is the draft tested against all 100 rows, with changes where the data didn't fit.
