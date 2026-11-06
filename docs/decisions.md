@@ -146,3 +146,13 @@ Dan found the theme list on Overview confusing once it was tied to filters. Clic
 ## 2026-11-06: A clear option whenever a filter is on
 
 Clicking a segment set one filter, but "Clear all" only appeared at two or more, so the only way out was the small × on the chip. "Clear all" now shows whenever any filter is on. Explore also has a "Clear filters" link next to the Filters button. Both clear every filter and the text search.
+
+## 2026-11-06: Review from the dashboard, open for the demo (changes a scope principle)
+
+The scope said the sheet is the only place people edit. Dan asked for the dashboard to be a second place, with no sign-in, for the demo. **The sheet stays the source of truth.** The dashboard never writes to Supabase. It posts a decision to the existing Apps Script web app, which writes the sheet and then runs a sync, so Supabase and the dashboard catch up in seconds.
+
+- **What you can do:** in the review queue, Confirm, Fix tags (sentiment, theme, product area, severity), or Unsure. In Explore, Edit tags. Status follows the sheet's meaning: tags that differ from Claude's are Corrected, and tags equal to Claude's are Confirmed. `reviewed_by` gets the typed name plus "(dashboard)", or "Someone (dashboard)".
+- **Never overwrite a human:** each request carries the values the dashboard showed. If the sheet holds anything else, the script refuses and the dashboard asks for a refresh.
+- **Safe without sign-in, for demo data:** only taxonomy values can be written. The optional name is cleaned so it can't start like a formula, and it is capped at 40 characters. There is a global limit of 30 edits a minute. An off switch is in the sheet menu (Admin: turn dashboard editing off). Raising a row to Sev1 sends the alert email, as it would from the sheet.
+- **Known limits:** anyone with the dashboard link can change tags, and the sheet's version history shows Dan's account for every dashboard edit, because the web app runs as its owner. With real customer data this needs sign-in (Google sign-in with an allow list); that belongs in the Part 3 roadmap.
+- **Also:** the health banner and live line now fit on one row on a laptop screen.

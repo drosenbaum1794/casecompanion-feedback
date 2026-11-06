@@ -115,6 +115,7 @@ svg text { fill: var(--muted); font-size: 11px; }
 .err { color: var(--critical); }
 /* ---------- live ---------- */
 .banner { flex-wrap: wrap; }
+#health-text { flex: 1 1 220px; }
 .live { display: inline-flex; flex-wrap: wrap; gap: 6px 10px; align-items: center; font-size: 13px; color: var(--muted); margin-left: auto; }
 .live button { font: inherit; font-size: 13px; border: 1px solid var(--axis); background: var(--surface); color: var(--ink); border-radius: 6px; padding: 3px 9px; cursor: pointer; }
 .newb { display: inline-block; font-size: 11px; font-weight: 700; letter-spacing: .03em; text-transform: uppercase; color: var(--link);
@@ -171,6 +172,19 @@ tr.is-new td { background: color-mix(in srgb, var(--bar) 8%, transparent); }
 .fd-body fieldset.wide .opts { flex-direction: row; gap: 6px 16px; }
 .fd-foot button { font: inherit; font-size: 14px; border: 1px solid var(--axis); background: var(--surface); color: var(--ink); border-radius: 6px; padding: 6px 14px; cursor: pointer; }
 .fd-foot button.primary { background: var(--bar); border-color: var(--bar); color: #fff; font-weight: 600; }
+.ed-body { grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px 20px; }
+.ed-body .wide { grid-column: 1 / -1; margin: 0; }
+.ed-body label { display: grid; gap: 4px; align-content: start; font-size: 13px; font-weight: 600; color: var(--ink-2); }
+.ed-body input[type="text"] { font: inherit; font-size: 14px; padding: 6px 8px; border-radius: 6px; border: 1px solid var(--axis); background: var(--surface); color: var(--ink); }
+.ed-quote { font-size: 14px; background: var(--surface-2); border-radius: 8px; padding: 10px 12px; }
+.acts { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.act { font: inherit; font-size: 13px; border: 1px solid var(--axis); background: var(--surface); color: var(--ink); border-radius: 6px; padding: 3px 9px; cursor: pointer; white-space: nowrap; }
+.act.primary { background: var(--bar); border-color: var(--bar); color: #fff; font-weight: 600; }
+.act:disabled { opacity: .5; cursor: progress; }
+.act:focus-visible { outline: 2px solid var(--bar); outline-offset: 2px; }
+.toast { position: fixed; left: 50%; bottom: 20px; transform: translateX(-50%); z-index: 10; max-width: min(560px, calc(100vw - 32px));
+  background: var(--ink); color: var(--page); border-radius: 8px; padding: 10px 14px; font-size: 14px; box-shadow: 0 8px 24px rgba(0,0,0,.25); }
+.toast.bad { background: var(--critical); color: var(--on-critical); }
 .fd-x:focus-visible, .fd-foot button:focus-visible { outline: 2px solid var(--bar); outline-offset: 2px; }
 .opts { display: flex; flex-wrap: wrap; gap: 6px 16px; }
 .opts label { font-size: 14px; display: inline-flex; gap: 6px; align-items: center; cursor: pointer; }
@@ -322,7 +336,7 @@ tr.baseline td { font-weight: 650; background: var(--surface-2); }
   <section role="tabpanel" id="queue" aria-labelledby="tab-queue" hidden>
     <div class="card">
       <div class="cardhead"><h2 id="q-title">Review queue</h2><button type="button" class="csv" id="q-csv">Download CSV</button></div>
-      <p class="sub">Review happens in the sheet: open a row, then confirm or correct it there. Counts update after the next sheet sync, about 10 minutes.</p>
+      <p class="sub">Confirm or fix tags here or in the sheet. A change made here is written to the sheet first, then synced to the dashboard, in a few seconds.</p>
       <h3 id="q-first-title">Do these first</h3>
       <div class="tablewrap"><table class="stack"><thead><tr><th>Why first</th><th>Proposed tags</th><th>Feedback</th><th>Waiting</th><th></th></tr></thead><tbody id="q-first"></tbody></table></div>
       <details id="q-rest-wrap">
@@ -359,6 +373,22 @@ tr.baseline td { font-weight: 650; background: var(--surface-2); }
         <th></th></tr></thead><tbody id="ex-rows"></tbody></table></div>
     </div>
   </section>
+  <dialog id="edit-dialog" class="fdialog" aria-labelledby="ed-title">
+    <div class="fd-head"><h2 id="ed-title">Edit tags</h2><button type="button" class="fd-x" id="ed-x" aria-label="Close">&times;</button></div>
+    <div class="fd-body ed-body">
+      <div class="wide ed-quote" id="ed-quote"></div>
+      <p class="wide small" id="ed-claude"></p>
+      <label>Sentiment <select id="ed-sentiment"></select></label>
+      <label>Severity <a href="#rubric" class="small" id="ed-rubric">(definitions)</a> <select id="ed-severity"></select></label>
+      <label>Theme <select id="ed-theme"></select></label>
+      <label>Product area <select id="ed-area"></select></label>
+      <label class="wide">Your name, for the sheet's reviewed_by column (optional, remembered on this browser) <input type="text" id="ed-who" maxlength="40" autocomplete="name"></label>
+      <p class="wide small" id="ed-note">Saving writes to the sheet, then syncs. Raising a row to Sev1 emails the routed CSM once.</p>
+    </div>
+    <div class="fd-foot"><button type="button" id="ed-cancel">Cancel</button><button type="button" class="primary" id="ed-save">Save to sheet</button></div>
+  </dialog>
+  <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
+
   <footer>
     <h3 id="rubric">Severity levels</h3>
     <dl id="rubric-list"></dl>
@@ -878,6 +908,93 @@ async function drawTrend() {
   } catch (e) { fail($('tr-chart'), e); }
 }
 
+// ---------- review from the dashboard ----------
+// Decisions go to the sheet through the Apps Script web app (the sheet stays the
+// source of truth), which then syncs to Supabase. Open for the demo: no sign-in.
+// The script only accepts taxonomy values and refuses if the row changed meanwhile.
+const NAME_KEY = 'casecompanion-reviewer-name';
+function savedName() { try { return localStorage.getItem(NAME_KEY) || ''; } catch { return ''; } }
+function saveName(v) { try { localStorage.setItem(NAME_KEY, v); } catch { /* private window: just don't remember */ } }
+const expectedOf = (r) => ({ sentiment: r.sentiment || '', theme: r.theme || '', product_area: r.product_area || '', severity: r.severity || '', status: r.status || '' });
+let toastTimer = null;
+function toast(msg, bad) {
+  const t = $('toast');
+  t.textContent = msg; t.className = `toast${bad ? ' bad' : ''}`; t.hidden = false;
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => { t.hidden = true; }, bad ? 12000 : 8000);
+}
+const DOING = { confirm: 'Confirming', correct: 'Saving', unsure: 'Marking as Unsure' };
+async function sendReview(r, action, set, buttons) {
+  buttons.forEach((b) => { b.disabled = true; });
+  toast(`${DOING[action]} ${r.fb_id}: writing to the sheet, then syncing. This takes a few seconds.`);
+  try {
+    const res = await fetch(CONFIG.WEBAPP_URL, { method: 'POST',
+      body: JSON.stringify({ action, fb_id: r.fb_id, expected: expectedOf(r), set: set || {}, who: savedName() }) });
+    const out = await res.json();
+    if (!out.ok) {
+      toast(out.error || 'Could not save.', true);
+      buttons.forEach((b) => { b.disabled = false; });
+      if (out.conflict) refreshAll();
+      return;
+    }
+    toast(`${r.fb_id} is now ${out.status}. ${out.sync}`);
+    refreshAll();
+  } catch (e) {
+    toast(`Could not reach the sheet (${e.message}). Nothing was changed. Try again, or use Open row.`, true);
+    buttons.forEach((b) => { b.disabled = false; });
+  }
+}
+function reviewButtons(r, inQueue) {
+  const wrap = el('div', { class: 'acts' });
+  const tagged = r.theme && r.sentiment && r.product_area && r.severity && r.status !== 'Archived';
+  if (tagged) {
+    const btns = [];
+    const add = (label, title, fn, cls) => {
+      const b = el('button', { type: 'button', class: cls ? `act ${cls}` : 'act', title, 'aria-label': `${label}, ${r.fb_id}` }, label);
+      b.addEventListener('click', fn); btns.push(b); wrap.append(b);
+    };
+    if (inQueue) add('Confirm', 'Accept these tags. Writes to the sheet.', () => sendReview(r, 'confirm', null, btns), 'primary');
+    add(inQueue ? 'Fix tags' : 'Edit tags', 'Change the tags. Writes to the sheet.', () => openEditor(r, btns));
+    if (inQueue && r.status !== 'Unsure') add('Unsure', 'Keep it in the queue for someone else to decide.', () => sendReview(r, 'unsure', null, btns));
+  }
+  wrap.append(openLink(r.fb_id));
+  return wrap;
+}
+let editing = null;
+const SEV_ORDER = ['Sev1', 'Sev2', 'Sev3', 'None'];
+async function openEditor(r, btns) {
+  let t = [];
+  try { t = await getTaxonomy(); } catch (e) { toast(`Could not load the taxonomy: ${e.message}`, true); return; }
+  const fill = (id, field, cur) => {
+    const vals = t.filter((x) => x.field === field).map((x) => x.value);
+    if (field === 'severity') vals.sort((a, b) => SEV_ORDER.indexOf(a) - SEV_ORDER.indexOf(b));
+    $(id).replaceChildren(...vals.map((v) => el('option', { value: v }, v)));
+    $(id).value = cur;
+  };
+  fill('ed-sentiment', 'sentiment', r.sentiment); fill('ed-severity', 'severity', r.severity);
+  fill('ed-theme', 'theme', r.theme); fill('ed-area', 'product_area', r.product_area);
+  $('ed-quote').replaceChildren(quote(r.feedback_text), el('div', { class: 'small' }, `${r.fb_id} · ${who(r)} · ${fmtDate(r.feedback_date)}`));
+  $('ed-claude').textContent = r.claude_reason ? `Why Claude tagged it: ${r.claude_reason}` : '';
+  $('ed-who').value = savedName();
+  editing = { r, btns };
+  $('edit-dialog').showModal();
+  $('ed-sentiment').focus();
+}
+// Praise has no severity, the same rule the tagger follows.
+$('ed-sentiment').addEventListener('change', () => { if ($('ed-sentiment').value === 'Positive') $('ed-severity').value = 'None'; });
+$('ed-save').addEventListener('click', () => {
+  if (!editing) return;
+  const { r, btns } = editing;
+  saveName($('ed-who').value.trim());
+  const set = { sentiment: $('ed-sentiment').value, theme: $('ed-theme').value, product_area: $('ed-area').value, severity: $('ed-severity').value };
+  $('edit-dialog').close();
+  sendReview(r, 'correct', set, btns);
+});
+$('ed-cancel').addEventListener('click', () => $('edit-dialog').close());
+$('ed-x').addEventListener('click', () => $('edit-dialog').close());
+$('ed-rubric').addEventListener('click', () => $('edit-dialog').close());
+$('edit-dialog').addEventListener('click', (e) => { if (e.target === $('edit-dialog')) $('edit-dialog').close(); });
+
 // ---------- review queue: "Do these first", then everything else ----------
 let queueRows = null;
 let queueShown = [];
@@ -895,7 +1012,7 @@ function queueRow(r, firstCol) {
       r.injection_suspected ? el('div', { class: 'flag' }, 'Possible prompt injection: review by hand') : '',
       r.claude_reason ? el('details', { class: 'reason' }, el('summary', {}, 'Why Claude tagged it'), el('div', {}, r.claude_reason)) : ''),
     el('td', { class: 'num' }, r.days_waiting < 1 ? 'today' : plural(r.days_waiting, 'day')),
-    el('td', {}, openLink(r.fb_id)));
+    el('td', {}, reviewButtons(r, true)));
 }
 function drawQueue() {
   const rows = queueRows.filter((r) => matches(r, 'queue'));
@@ -1045,7 +1162,7 @@ function drawExplore() {
     el('td', {}, ...tagsCell(r)),
     el('td', {}, who(r)),
     el('td', {}, r.status || 'Not tagged yet'),
-    el('td', {}, openLink(r.fb_id)))));
+    el('td', {}, reviewButtons(r, false)))));
   labelCells($('ex-rows'));
 }
 $('ex-csv').addEventListener('click', () => downloadCsv('feedback', exShown));

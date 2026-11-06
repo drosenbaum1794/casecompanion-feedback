@@ -6,10 +6,10 @@ import vm from 'node:vm';
 import assert from 'node:assert/strict';
 
 const ctx = vm.createContext({ console });
-for (const f of ['config.gs', 'apply.gs', 'edit.gs', 'alerts.gs', 'push.gs', 'sync.gs']) {
+for (const f of ['config.gs', 'apply.gs', 'edit.gs', 'alerts.gs', 'push.gs', 'sync.gs', 'dashboard_edit.gs']) {
   vm.runInContext(readFileSync(new URL(`../apps-script/${f}`, import.meta.url), 'utf8'), ctx, { filename: f });
 }
-const { validateSuggestion_, planRowWrite_, planEditRow_, selectAlertRows_, rowFingerprint_ } = ctx;
+const { validateSuggestion_, planRowWrite_, planEditRow_, selectAlertRows_, rowFingerprint_, planDashboardEdit_, cleanName_ } = ctx;
 
 const taxonomy = {
   sentiment: new Set(['Positive', 'Negative', 'Mixed']),
@@ -183,5 +183,70 @@ test('a row still holding a typo stays flagged', () =>
   assert.deepEqual([...invalidTagFields_({ ...tagged, theme: 'Acuracy' }, taxonomy)], ['theme']));
 test('empty tags are not invalid (untagged rows)', () =>
   assert.deepEqual([...invalidTagFields_({ sentiment: '', theme: '', product_area: '', severity: '', confidence: '' }, taxonomy)], []));
+
+console.log('planDashboardEdit_ (review from the dashboard)');
+const taxArr = Object.fromEntries(Object.entries(taxonomy).map(([k, v]) => [k, [...v]]));
+const dashRow = {
+  fb_id: 'fb_abc12345', sentiment: 'Negative', theme: 'Wrong output', product_area: 'Medical records', severity: 'Sev2',
+  claude_sentiment: 'Negative', claude_theme: 'Wrong output', claude_product_area: 'Medical records', claude_severity: 'Sev2',
+  status: 'Pending', sync_error: '',
+};
+const seen = (r) => ({ sentiment: r.sentiment, theme: r.theme, product_area: r.product_area, severity: r.severity, status: r.status });
+const dm = { now: 'NOW' };
+test('confirm with Claude\'s tags: Confirmed, stamped, no tag writes', () => {
+  const p = planDashboardEdit_(dashRow, { action: 'confirm', expected: seen(dashRow), who: 'Dan' }, taxArr, dm);
+  assert.equal(p.ok, true);
+  assert.deepEqual({ ...p.writes }, { status: 'Confirmed', reviewed_by: 'Dan (dashboard)', reviewed_at: 'NOW' });
+});
+test('correct a tag: writes it and marks Corrected', () => {
+  const p = planDashboardEdit_(dashRow, { action: 'correct', expected: seen(dashRow), set: { severity: 'Sev1' } }, taxArr, dm);
+  assert.equal(p.writes.severity, 'Sev1');
+  assert.equal(p.writes.status, 'Corrected');
+  assert.equal(p.writes.reviewed_by, 'Someone (dashboard)');
+});
+test('correcting back to Claude\'s exact tags is Confirmed, not Corrected', () => {
+  const row = { ...dashRow, severity: 'Sev3', status: 'Corrected' };
+  const p = planDashboardEdit_(row, { action: 'correct', expected: seen(row), set: { severity: 'Sev2' } }, taxArr, dm);
+  assert.equal(p.writes.status, 'Confirmed');
+});
+test('unsure keeps the tags and sets Unsure', () => {
+  const p = planDashboardEdit_(dashRow, { action: 'unsure', expected: seen(dashRow) }, taxArr, dm);
+  assert.equal(p.writes.status, 'Unsure');
+  assert.equal('severity' in p.writes, false);
+});
+test('refuses when the sheet changed since the dashboard loaded (never overwrite a human)', () => {
+  const p = planDashboardEdit_({ ...dashRow, theme: 'Bug or reliability' },
+    { action: 'correct', expected: seen(dashRow), set: { severity: 'Sev1' } }, taxArr, dm);
+  assert.equal(p.ok, false);
+  assert.equal(p.conflict, true);
+});
+test('refuses a status change made in the sheet meanwhile', () =>
+  assert.equal(planDashboardEdit_({ ...dashRow, status: 'Confirmed' }, { action: 'unsure', expected: seen(dashRow) }, taxArr, dm).conflict, true));
+test('refuses a value outside the taxonomy', () =>
+  assert.match(planDashboardEdit_(dashRow, { action: 'correct', expected: seen(dashRow), set: { theme: 'Hacked' } }, taxArr, dm).error, /not a theme/));
+test('refuses an unknown action', () =>
+  assert.equal(planDashboardEdit_(dashRow, { action: 'delete', expected: seen(dashRow) }, taxArr, dm).ok, false));
+test('refuses an archived row', () => {
+  const row = { ...dashRow, status: 'Archived' };
+  assert.match(planDashboardEdit_(row, { action: 'confirm', expected: seen(row) }, taxArr, dm).error, /archived/);
+});
+test('refuses an untagged row', () => {
+  const row = { ...dashRow, sentiment: '', theme: '', product_area: '', severity: '', status: '' };
+  assert.match(planDashboardEdit_(row, { action: 'confirm', expected: seen(row) }, taxArr, dm).error, /no tags yet/);
+});
+test('clears a stale invalid-value flag once every tag is valid', () => {
+  const row = { ...dashRow, sync_error: 'invalid value in theme' };
+  assert.equal(planDashboardEdit_(row, { action: 'confirm', expected: seen(row) }, taxArr, dm).writes.sync_error, '');
+});
+test('refuses a row with a duplicate-ID sync problem', () => {
+  const row = { ...dashRow, sync_error: 'duplicate id' };
+  assert.equal(planDashboardEdit_(row, { action: 'confirm', expected: seen(row) }, taxArr, dm).ok, false);
+});
+test('a typed name cannot start like a formula and is capped', () => {
+  assert.equal(cleanName_('=HYPERLINK("x")'), 'HYPERLINK("x")');
+  assert.equal(cleanName_('  @+-Dan'), 'Dan');
+  assert.equal(cleanName_('x'.repeat(80)).length, 40);
+  assert.equal(cleanName_(null), '');
+});
 
 console.log(`\n${passed} tests passed`);

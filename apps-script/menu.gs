@@ -8,6 +8,8 @@ function onOpen() {
     .addSeparator()
     .addItem('Admin: install triggers (run once)', 'installTriggers')
     .addItem('Admin: create ingest secret', 'createIngestSecret')
+    .addItem('Admin: turn dashboard editing off', 'turnDashboardEditingOff')
+    .addItem('Admin: turn dashboard editing on', 'turnDashboardEditingOn')
     .addToUi();
 }
 
