@@ -1,0 +1,516 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CaseCompanion Feedback</title>
+<meta name="description" content="Live view of tagged CaseCompanion customer feedback: themes, Sev1s, segments, trends, and the review queue.">
+<style>
+/* ---------- tokens (reference palette; dark mode stepped, not flipped) ---------- */
+:root {
+  color-scheme: light;
+  --page: #f9f9f7; --surface: #fcfcfb; --surface-2: #f3f2ef;
+  --ink: #0b0b0b; --ink-2: #52514e; --muted: #6f6d68;
+  --grid: #e1e0d9; --axis: #c3c2b7; --ring: rgba(11,11,11,0.10);
+  --bar: #2a78d6; --bar-2: #9ec5f4; --link: #1c5cab;
+  --good: #0ca30c; --good-ink: #006300; --warning: #fab219; --serious: #ec835a; --critical: #d03b3b;
+  --on-critical: #ffffff; --on-warning: #0b0b0b;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --page: #0d0d0d; --surface: #1a1a19; --surface-2: #232321;
+    --ink: #f0efec; --ink-2: #c3c2b7; --muted: #9a988f;
+    --grid: #2c2c2a; --axis: #383835; --ring: rgba(255,255,255,0.10);
+    --bar: #3987e5; --bar-2: #1c5cab; --link: #86b6ef;
+    --good-ink: #0ca30c;
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --page: #0d0d0d; --surface: #1a1a19; --surface-2: #232321;
+  --ink: #f0efec; --ink-2: #c3c2b7; --muted: #9a988f;
+  --grid: #2c2c2a; --axis: #383835; --ring: rgba(255,255,255,0.10);
+  --bar: #3987e5; --bar-2: #1c5cab; --link: #86b6ef;
+  --good-ink: #0ca30c;
+}
+
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--page); color: var(--ink);
+  font: 15px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; }
+a { color: var(--link); }
+.wrap { max-width: 1080px; margin: 0 auto; padding: 20px 16px 48px; }
+h1 { font-size: 22px; margin: 0 0 12px; font-weight: 650; }
+h2 { font-size: 17px; margin: 0 0 4px; font-weight: 650; }
+h3 { font-size: 14px; margin: 18px 0 8px; font-weight: 650; color: var(--ink-2); }
+.sub { color: var(--ink-2); margin: 0 0 14px; font-size: 14px; }
+.small { font-size: 13px; color: var(--muted); }
+.num { font-variant-numeric: tabular-nums; }
+
+/* ---------- top bar ---------- */
+.banner { display: flex; gap: 10px; align-items: center; padding: 10px 14px; border-radius: 8px;
+  border: 1px solid var(--ring); background: var(--surface); margin-bottom: 10px; font-size: 14px; }
+.dot { width: 10px; height: 10px; border-radius: 50%; flex: none; }
+.banner.green .dot { background: var(--good); }
+.banner.amber .dot { background: var(--warning); }
+.banner.red .dot { background: var(--critical); }
+.facts { display: grid; gap: 4px; margin: 0 0 16px; font-size: 14px; color: var(--ink-2); }
+
+/* ---------- tabs ---------- */
+nav[role="tablist"] { display: flex; flex-wrap: wrap; gap: 4px; border-bottom: 1px solid var(--grid); margin-bottom: 18px; }
+nav button { font: inherit; font-size: 14px; background: none; border: 0; padding: 8px 12px; color: var(--ink-2);
+  border-bottom: 2px solid transparent; cursor: pointer; }
+nav button[aria-selected="true"] { color: var(--ink); border-bottom-color: var(--bar); font-weight: 600; }
+nav button:focus-visible, select:focus-visible, input:focus-visible, .seg button:focus-visible { outline: 2px solid var(--bar); outline-offset: 2px; }
+section[role="tabpanel"][hidden] { display: none; }
+
+.card { background: var(--surface); border: 1px solid var(--ring); border-radius: 10px; padding: 16px; margin-bottom: 16px; }
+.filters { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 12px; }
+select, input[type="search"] { font: inherit; font-size: 14px; padding: 6px 8px; border-radius: 6px;
+  border: 1px solid var(--axis); background: var(--surface); color: var(--ink); max-width: 100%; }
+.seg { display: inline-flex; border: 1px solid var(--axis); border-radius: 6px; overflow: hidden; }
+.seg button { font: inherit; font-size: 14px; border: 0; background: var(--surface); color: var(--ink-2); padding: 6px 10px; cursor: pointer; }
+.seg button[aria-pressed="true"] { background: var(--bar); color: #fff; }
+
+/* ---------- ranked bars ---------- */
+.rank { display: grid; grid-template-columns: minmax(120px, 190px) 1fr auto; gap: 6px 12px; align-items: center; }
+.rank .label { font-size: 14px; }
+.track { height: 14px; position: relative; }
+.bar { position: absolute; left: 0; top: 0; bottom: 0; background: var(--bar); border-radius: 0 4px 4px 0; min-width: 2px; }
+.bar.ghost { background: var(--bar-2); }
+.rank .val { font-size: 13px; color: var(--ink-2); white-space: nowrap; }
+@media (max-width: 600px) {
+  .rank { grid-template-columns: 1fr auto; gap: 2px 8px; }
+  .rank .track { grid-column: 1 / -1; grid-row: auto; margin-bottom: 8px; }
+  .rank .label { grid-column: 1; }
+  .rank .val { grid-column: 2; text-align: right; }
+}
+.legend { display: flex; gap: 14px; font-size: 13px; color: var(--ink-2); margin: 10px 0 0; flex-wrap: wrap; }
+.sw { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 5px; vertical-align: -1px; }
+
+/* ---------- tiles ---------- */
+.tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px; }
+.tile { background: var(--surface-2); border-radius: 8px; padding: 10px 12px; }
+.tile .k { font-size: 13px; color: var(--ink-2); }
+.tile .v { font-size: 24px; font-weight: 650; }
+
+/* ---------- severity badge: color + text, never color alone ---------- */
+.sev { display: inline-block; font-size: 12px; font-weight: 600; padding: 1px 7px; border-radius: 10px;
+  text-decoration: none; white-space: nowrap; border: 1px solid var(--ring); color: var(--ink); background: var(--surface-2); }
+.sev.Sev1 { background: var(--critical); color: var(--on-critical); border-color: transparent; }
+.sev.Sev2 { background: var(--serious); color: #0b0b0b; border-color: transparent; }
+.sev.Sev3 { background: var(--surface-2); }
+.flag { font-size: 12px; font-weight: 600; color: var(--critical); }
+
+/* ---------- tables ---------- */
+.tablewrap { overflow-x: auto; }
+table { border-collapse: collapse; width: 100%; font-size: 14px; }
+th, td { text-align: left; padding: 8px 8px; border-bottom: 1px solid var(--grid); vertical-align: top; }
+th { font-size: 12px; color: var(--muted); font-weight: 600; text-transform: uppercase; letter-spacing: .03em; }
+td.quote { min-width: 260px; max-width: 460px; }
+.quote q { quotes: "\201C" "\201D"; }
+
+/* ---------- trend ---------- */
+svg text { fill: var(--muted); font-size: 11px; }
+.empty { color: var(--muted); font-size: 14px; padding: 8px 0; }
+.err { color: var(--critical); }
+footer { margin-top: 28px; font-size: 13px; color: var(--ink-2); }
+footer dl { display: grid; grid-template-columns: max-content 1fr; gap: 6px 12px; }
+footer dt { font-weight: 600; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>CaseCompanion feedback</h1>
+  <div id="health" class="banner" role="status"><span class="dot" aria-hidden="true"></span><span>Checking pipeline health…</span></div>
+  <div class="facts">
+    <div id="sample"></div>
+    <div id="trust"></div>
+  </div>
+
+  <nav role="tablist" aria-label="Views">
+    <button role="tab" id="tab-overview" aria-controls="overview" aria-selected="true">Overview</button>
+    <button role="tab" id="tab-sev1" aria-controls="sev1" aria-selected="false">Sev1 and follow-ups</button>
+    <button role="tab" id="tab-segments" aria-controls="segments" aria-selected="false">Segments</button>
+    <button role="tab" id="tab-trend" aria-controls="trend" aria-selected="false">Trend</button>
+    <button role="tab" id="tab-queue" aria-controls="queue" aria-selected="false">Review queue</button>
+    <button role="tab" id="tab-explore" aria-controls="explore" aria-selected="false">Explore</button>
+  </nav>
+
+  <section role="tabpanel" id="overview" aria-labelledby="tab-overview">
+    <div class="filters">
+      <div class="seg" role="group" aria-label="Sentiment">
+        <button data-s="Complaint" aria-pressed="true">Complaints</button>
+        <button data-s="" aria-pressed="false">All</button>
+        <button data-s="Positive" aria-pressed="false">Praise</button>
+      </div>
+      <select id="ov-role" aria-label="Role"><option value="">All roles</option><option>attorney</option><option>paralegal</option><option value="case_manager">case manager</option></select>
+      <select id="ov-firm" aria-label="Firm size"><option value="">All firm sizes</option><option>small</option><option>medium</option><option>large</option></select>
+    </div>
+    <div class="card">
+      <h2>Themes, ranked by distinct issues</h2>
+      <p class="sub" id="ov-n"></p>
+      <div id="ov-themes" class="rank"></div>
+      <div class="legend"><span><span class="sw" style="background:var(--bar)"></span>Distinct issues (near-duplicates counted once)</span><span><span class="sw" style="background:var(--bar-2)"></span>Mentions</span></div>
+    </div>
+    <div class="card">
+      <h2>Severity and sentiment</h2>
+      <p class="sub">Mentions, for the filters above. Severity levels are defined <a href="#rubric">below</a>.</p>
+      <div id="ov-tiles" class="tiles"></div>
+    </div>
+  </section>
+
+  <section role="tabpanel" id="sev1" aria-labelledby="tab-sev1" hidden>
+    <div class="card">
+      <h2>Every Sev1</h2>
+      <p class="sub" id="sev1-n"></p>
+      <div class="tablewrap"><table><thead><tr><th>Date</th><th>Feedback</th><th>Who</th><th>Tag</th><th>Follow-up</th><th></th></tr></thead><tbody id="sev1-rows"></tbody></table></div>
+    </div>
+  </section>
+
+  <section role="tabpanel" id="segments" aria-labelledby="tab-segments" hidden>
+    <div class="card">
+      <h2>Who is affected</h2>
+      <p class="sub">Share of each segment's feedback that is a complaint, and that is Sev1 or Sev2. The data has no account IDs or revenue, so firm size and usage stand in for account value.</p>
+      <div id="seg-tables"></div>
+    </div>
+  </section>
+
+  <section role="tabpanel" id="trend" aria-labelledby="tab-trend" hidden>
+    <div class="filters">
+      <select id="tr-theme" aria-label="Theme"><option value="">All themes</option></select>
+      <select id="tr-area" aria-label="Product area"><option value="">All product areas</option></select>
+    </div>
+    <div class="card">
+      <h2>Weekly mentions</h2>
+      <p class="sub" id="tr-n"></p>
+      <div id="tr-chart"></div>
+    </div>
+  </section>
+
+  <section role="tabpanel" id="queue" aria-labelledby="tab-queue" hidden>
+    <div class="card">
+      <h2 id="q-title">Review queue</h2>
+      <p class="sub">Pending and Unsure rows, lowest confidence first. Review happens in the sheet: open a row, then confirm or correct it there.</p>
+      <div class="tablewrap"><table><thead><tr><th>Confidence</th><th>Tag</th><th>Feedback</th><th>Why Claude tagged it</th><th>Waiting</th><th></th></tr></thead><tbody id="q-rows"></tbody></table></div>
+    </div>
+  </section>
+
+  <section role="tabpanel" id="explore" aria-labelledby="tab-explore" hidden>
+    <div class="filters">
+      <input type="search" id="ex-q" placeholder="Search feedback text" aria-label="Search feedback text">
+      <select id="ex-sent" aria-label="Sentiment"><option value="">Any sentiment</option><option>Positive</option><option>Negative</option><option>Mixed</option></select>
+      <select id="ex-sev" aria-label="Severity"><option value="">Any severity</option><option>Sev1</option><option>Sev2</option><option>Sev3</option><option>None</option></select>
+      <select id="ex-theme" aria-label="Theme"><option value="">Any theme</option></select>
+      <select id="ex-area" aria-label="Product area"><option value="">Any product area</option></select>
+    </div>
+    <div class="card">
+      <p class="sub" id="ex-n"></p>
+      <div class="tablewrap"><table><thead><tr><th>Date</th><th>Feedback</th><th>Tags</th><th>Who</th><th>Status</th><th></th></tr></thead><tbody id="ex-rows"></tbody></table></div>
+    </div>
+  </section>
+
+  <footer>
+    <h3 id="rubric">Severity levels</h3>
+    <dl id="rubric-list"></dl>
+    <p>Demo over mock data: no sign-in, mock CSM routing. Edits happen only in the Google Sheet; this page reads a copy in Supabase. Counts come from SQL functions, not from the model. <a href="https://github.com/drosenbaum1794/casecompanion-feedback">How it works</a>.</p>
+  </footer>
+</div>
+
+<script>
+// ---------- config: public by design (read-only key; RLS and column grants apply) ----------
+const CONFIG = {
+  SUPABASE_URL: 'https://rienopvbkpukefaeynhb.supabase.co',
+  ANON_KEY: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJpZW5vcHZia3B1a2VmYWV5bmhiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTM5NTIyNjIsImV4cCI6MjEwOTUyODI2Mn0.UtcqV9GFaEDU05uezWwTSnBCIlwthj2AMbW7Qh99GJ0',
+  WEBAPP_URL: 'https://script.google.com/macros/s/AKfycbyrw_Qrh-TMNRUM5he3VkmEhVkUvVKyvD3MwQ7ApR4cVUa2AIdXGqyave8kpHWTxI7LYQ/exec',
+  // From docs/prompt-log.md: production v2 on the 40-row eval set, adjudicated labels.
+  EVAL: { rows: 40, allFour: 26, sev1Caught: 7, sev1Total: 7 },
+  SMALL: 10,
+};
+
+// ---------- tiny helpers (all data goes in as text, never as HTML) ----------
+const $ = (id) => document.getElementById(id);
+function el(tag, props = {}, ...kids) {
+  const n = document.createElement(tag);
+  for (const [k, v] of Object.entries(props)) {
+    if (v == null) continue;
+    if (k === 'class') n.className = v;
+    else if (k === 'text') n.textContent = v;
+    else if (k === 'style') n.setAttribute('style', v);
+    else n.setAttribute(k, v);
+  }
+  for (const kid of kids.flat()) if (kid != null) n.append(kid instanceof Node ? kid : document.createTextNode(String(kid)));
+  return n;
+}
+const headers = { apikey: CONFIG.ANON_KEY, Authorization: `Bearer ${CONFIG.ANON_KEY}` };
+async function rpc(name, args = {}) {
+  const r = await fetch(`${CONFIG.SUPABASE_URL}/rest/v1/rpc/${name}`, {
+    method: 'POST', headers: { ...headers, 'Content-Type': 'application/json' }, body: JSON.stringify(args) });
+  if (!r.ok) throw new Error(`${name}: HTTP ${r.status}`);
+  return r.json();
+}
+async function rest(path) {
+  const r = await fetch(`${CONFIG.SUPABASE_URL}/rest/v1/${path}`, { headers });
+  if (!r.ok) throw new Error(`${path.split('?')[0]}: HTTP ${r.status}`);
+  return r.json();
+}
+const fmtDate = (d) => d ? new Date(d + (d.length === 10 ? 'T12:00:00' : '')).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '';
+const pct = (a, b) => b ? Math.round(100 * a / b) : 0;
+const plural = (n, word) => `${n} ${word}${Number(n) === 1 ? '' : 's'}`;
+const directional = (n) => n < CONFIG.SMALL ? ' Fewer than 10 rows: directional.' : '';
+function sevBadge(s) { return s ? el('a', { class: `sev ${s}`, href: '#rubric', title: 'Severity definition' }, s) : ''; }
+function openLink(id) { return el('a', { href: `${CONFIG.WEBAPP_URL}?id=${encodeURIComponent(id)}`, target: '_blank', rel: 'noopener' }, 'Open row'); }
+function quote(text) { return el('q', {}, text || ''); }
+function who(r) { return `${(r.user_role || '').replace('_', ' ')}, ${r.firm_size || '?'} firm`; }
+function fail(target, e) { target.replaceChildren(el('p', { class: 'err' }, `Could not load: ${e.message}`)); }
+
+// ---------- tabs ----------
+const tabs = [...document.querySelectorAll('[role="tab"]')];
+const loaded = new Set();
+const loaders = { overview: loadOverview, sev1: loadSev1, segments: loadSegments, trend: loadTrend, queue: loadQueue, explore: loadExplore };
+function show(id) {
+  for (const t of tabs) {
+    const on = t.getAttribute('aria-controls') === id;
+    t.setAttribute('aria-selected', String(on));
+    t.tabIndex = on ? 0 : -1;
+    $(t.getAttribute('aria-controls')).hidden = !on;
+  }
+  if (!loaded.has(id)) { loaded.add(id); loaders[id](); }
+  history.replaceState(null, '', `#${id}`);
+}
+tabs.forEach((t, i) => {
+  t.addEventListener('click', () => show(t.getAttribute('aria-controls')));
+  t.addEventListener('keydown', (e) => {
+    const d = e.key === 'ArrowRight' ? 1 : e.key === 'ArrowLeft' ? -1 : 0;
+    if (d) { const n = tabs[(i + d + tabs.length) % tabs.length]; n.focus(); n.click(); }
+  });
+});
+
+// ---------- header: health, sample, trust ----------
+async function loadHeader() {
+  try {
+    const h = await rpc('health');
+    const last = h.last_success_at ? new Date(h.last_success_at) : null;
+    const mins = last ? Math.round((Date.now() - last) / 60000) : Infinity;
+    const failing = h.last_run && h.last_run.result === 'ERROR';
+    const cls = failing || mins > 120 ? 'red' : mins > 30 ? 'amber' : 'green';
+    const ago = last ? (mins < 1 ? 'just now' : mins < 120 ? `${mins} min ago` : `${Math.round(mins / 60)} hours ago`) : 'never';
+    const label = { green: 'Healthy.', amber: 'Delayed.', red: 'Needs attention.' }[cls];
+    const extra = failing ? ' The last sync reported an error; see the sheet\'s Health tab.' : h.errors_24h ? ` ${h.errors_24h} failed sync(s) in the last 24 hours.` : '';
+    $('health').className = `banner ${cls}`;
+    $('health').replaceChildren(el('span', { class: 'dot', 'aria-hidden': 'true' }), el('span', {}, `${label} Last successful sync ${ago}.${extra}`));
+    $('sample').textContent = `Showing ${h.rows_active} feedback rows, ${fmtDate(h.date_range.from)} to ${fmtDate(h.date_range.to)}. ${h.queue_size} waiting for review.`;
+    const e = CONFIG.EVAL;
+    const reviewed = h.reviewed_count || 0;
+    const corr = reviewed ? `Humans corrected ${Math.round(100 * (h.override_rate?.any_field || 0))}% of ${reviewed} reviewed rows.` : 'No rows reviewed by a human yet.';
+    $('trust').textContent = `Tagging accuracy: on a 40-row hand-labeled test set, Claude caught ${e.sev1Caught} of ${e.sev1Total} Sev1s and matched all four tags on ${e.allFour} of ${e.rows} rows. ${corr}`;
+  } catch (err) {
+    $('health').className = 'banner red';
+    $('health').replaceChildren(el('span', { class: 'dot', 'aria-hidden': 'true' }), el('span', {}, `Cannot reach the data: ${err.message}`));
+  }
+}
+
+// ---------- overview ----------
+let ovSentiment = 'Complaint';
+document.querySelectorAll('#overview .seg button').forEach((b) => b.addEventListener('click', () => {
+  document.querySelectorAll('#overview .seg button').forEach((x) => x.setAttribute('aria-pressed', String(x === b)));
+  ovSentiment = b.dataset.s; loadOverview();
+}));
+$('ov-role').addEventListener('change', loadOverview);
+$('ov-firm').addEventListener('change', loadOverview);
+async function loadOverview() {
+  const f = { p_role: $('ov-role').value || null, p_firm_size: $('ov-firm').value || null };
+  try {
+    const [rows, pos, neg, mix] = await Promise.all([
+      rpc('theme_summary', { ...f, p_sentiment: ovSentiment || null }),
+      rpc('theme_summary', { ...f, p_sentiment: 'Positive' }),
+      rpc('theme_summary', { ...f, p_sentiment: 'Negative' }),
+      rpc('theme_summary', { ...f, p_sentiment: 'Mixed' }),
+    ]);
+    const n = rows[0]?.sample_size || 0;
+    $('ov-n').textContent = n
+      ? `n = ${n} mentions, ${fmtDate(rows[0].date_from)} to ${fmtDate(rows[0].date_to)}. Issue counts are per theme.${directional(n)}`
+      : 'No rows match these filters.';
+    const max = Math.max(1, ...rows.map((r) => Number(r.mentions)));
+    $('ov-themes').replaceChildren(...rows.flatMap((r) => {
+      const tip = `${r.theme}: ${r.distinct_issues} distinct issues, ${r.mentions} mentions (Sev1 ${r.sev1}, Sev2 ${r.sev2}, Sev3 ${r.sev3})`;
+      return [
+        el('div', { class: 'label' }, r.theme),
+        el('div', { class: 'track', title: tip, role: 'img', 'aria-label': tip },
+          el('div', { class: 'bar ghost', style: `width:${100 * r.mentions / max}%` }),
+          el('div', { class: 'bar', style: `width:${100 * r.distinct_issues / max}%` })),
+        el('div', { class: 'val num' }, `${plural(r.distinct_issues, 'issue')} · ${plural(r.mentions, 'mention')}`, Number(r.sev1) ? ' ' : '', Number(r.sev1) ? sevBadge('Sev1') : '', Number(r.sev1) ? ` ${r.sev1}` : ''),
+      ];
+    }));
+    const sum = (k) => rows.reduce((s, r) => s + Number(r[k]), 0);
+    const tile = (k, v, badge) => el('div', { class: 'tile' }, el('div', { class: 'k' }, badge || k), el('div', { class: 'v num' }, v));
+    const size = (x) => x[0]?.sample_size || 0;
+    $('ov-tiles').replaceChildren(
+      tile('Sev1', sum('sev1'), sevBadge('Sev1')), tile('Sev2', sum('sev2'), sevBadge('Sev2')),
+      tile('Sev3', sum('sev3'), sevBadge('Sev3')), tile('No severity (praise)', sum('sev_none')),
+      tile('Positive', size(pos)), tile('Negative', size(neg)), tile('Mixed', size(mix)));
+  } catch (e) { fail($('ov-themes'), e); }
+}
+
+// ---------- Sev1 ----------
+const COLS = 'fb_id,feedback_date,channel,feedback_text,user_role,firm_size,months_subscribed,monthly_queries,sentiment,theme,product_area,severity,confidence,claude_reason,status,follow_up,follow_up_status,ticket_link,injection_suspected,issue_id,tagged_at,alerted_at';
+const NOT_ARCHIVED = 'or=(status.is.null,status.neq.Archived)';
+async function loadSev1() {
+  try {
+    const rows = await rest(`feedback?select=${COLS}&severity=eq.Sev1&${NOT_ARCHIVED}&order=feedback_date.desc`);
+    const issues = new Set(rows.map((r) => r.issue_id || r.fb_id)).size;
+    const open = rows.filter((r) => r.follow_up_status !== 'Resolved').length;
+    $('sev1-n').textContent = `n = ${rows.length} rows, ${issues} distinct issues. ${open} without a resolved follow-up. Each one emailed the routed CSM once.`;
+    $('sev1-rows').replaceChildren(...rows.map((r) => el('tr', {},
+      el('td', { class: 'num' }, fmtDate(r.feedback_date)),
+      el('td', { class: 'quote' }, quote(r.feedback_text), r.injection_suspected ? el('div', { class: 'flag' }, 'Possible prompt injection: review by hand') : ''),
+      el('td', {}, who(r), el('div', { class: 'small' }, `${r.months_subscribed} mo, ${r.monthly_queries} queries/mo`)),
+      el('td', {}, r.theme, el('div', { class: 'small' }, r.product_area)),
+      el('td', {}, r.follow_up_status || (r.follow_up ? 'Callback needed' : 'None yet'),
+        r.ticket_link && /^https?:\/\//.test(r.ticket_link) ? el('div', {}, el('a', { href: r.ticket_link, target: '_blank', rel: 'noopener' }, 'Ticket')) : ''),
+      el('td', {}, openLink(r.fb_id)))));
+    if (!rows.length) $('sev1-rows').replaceChildren(el('tr', {}, el('td', { colspan: 6, class: 'empty' }, 'No Sev1 feedback.')));
+  } catch (e) { fail($('sev1-rows'), e); }
+}
+
+// ---------- segments ----------
+async function loadSegments() {
+  try {
+    const rows = await rpc('segment_summary');
+    const names = { role: 'By role', firm_size: 'By firm size', usage: 'By usage' };
+    $('seg-tables').replaceChildren(...['role', 'firm_size', 'usage'].map((dim) => {
+      const part = rows.filter((r) => r.dimension === dim);
+      return el('div', {}, el('h3', {}, names[dim]), el('div', { class: 'tablewrap' }, el('table', {},
+        el('thead', {}, el('tr', {}, el('th', {}, 'Segment'), el('th', {}, 'Rows'), el('th', {}, 'Complaints'), el('th', {}, 'Sev1 or Sev2'), el('th', {}, 'Sev1'))),
+        el('tbody', {}, ...part.map((r) => el('tr', {},
+          el('td', {}, String(r.segment).replace('_', ' ')),
+          el('td', { class: 'num' }, `${r.rows_n}${r.rows_n < CONFIG.SMALL ? ' (directional)' : ''}`),
+          el('td', { class: 'num' }, `${pct(r.complaints, r.rows_n)}% (${r.complaints})`),
+          el('td', { class: 'num' }, `${pct(r.sev1_or_sev2, r.rows_n)}% (${r.sev1_or_sev2})`),
+          el('td', { class: 'num' }, r.sev1)))))));
+    }));
+  } catch (e) { fail($('seg-tables'), e); }
+}
+
+// ---------- trend ----------
+$('tr-theme').addEventListener('change', drawTrend);
+$('tr-area').addEventListener('change', drawTrend);
+async function loadTrend() { await fillTaxonomySelects(); drawTrend(); }
+async function drawTrend() {
+  try {
+    const rows = await rpc('theme_trend', { p_theme: $('tr-theme').value || null, p_product_area: $('tr-area').value || null, p_weeks: 10 });
+    const total = rows.reduce((s, r) => s + Number(r.mentions), 0);
+    $('tr-n').textContent = `n = ${total} mentions over ${rows.length} weeks, ending the week of the latest feedback (${fmtDate(rows.at(-1)?.week_start)}).${directional(total)}`;
+    const W = 640, H = 200, padL = 28, padB = 26, padT = 10;
+    const max = Math.max(1, ...rows.map((r) => Number(r.mentions)));
+    const step = (W - padL) / Math.max(rows.length, 1);
+    const bw = Math.max(6, Math.min(36, step - 8));
+    const y = (v) => padT + (H - padT - padB) * (1 - v / max);
+    const ns = 'http://www.w3.org/2000/svg';
+    const svg = document.createElementNS(ns, 'svg');
+    svg.setAttribute('viewBox', `0 0 ${W} ${H}`); svg.setAttribute('width', '100%'); svg.setAttribute('role', 'img');
+    svg.setAttribute('aria-label', `Weekly mentions: ${rows.map((r) => `${r.week_start} ${r.mentions}`).join(', ')}`);
+    const add = (tag, attrs, text) => { const n = document.createElementNS(ns, tag); for (const [k, v] of Object.entries(attrs)) n.setAttribute(k, v); if (text != null) n.textContent = text; svg.append(n); return n; };
+    for (const t of [0, Math.ceil(max / 2), max]) {
+      add('line', { x1: padL, x2: W, y1: y(t), y2: y(t), stroke: 'var(--grid)', 'stroke-width': 1 });
+      add('text', { x: padL - 6, y: y(t) + 4, 'text-anchor': 'end' }, t);
+    }
+    rows.forEach((r, i) => {
+      const x = padL + i * step + (step - bw) / 2;
+      const v = Number(r.mentions);
+      const g = document.createElementNS(ns, 'g');
+      const hit = document.createElementNS(ns, 'rect');
+      Object.entries({ x: padL + i * step, y: padT, width: step, height: H - padT - padB, fill: 'transparent' }).forEach(([k, val]) => hit.setAttribute(k, val));
+      const bar = document.createElementNS(ns, 'path');
+      const top = y(v), base = y(0), rr = Math.min(4, bw / 2, base - top);
+      bar.setAttribute('d', v ? `M${x},${base} V${top + rr} Q${x},${top} ${x + rr},${top} H${x + bw - rr} Q${x + bw},${top} ${x + bw},${top + rr} V${base} Z` : `M${x},${base} H${x + bw}`);
+      bar.setAttribute('fill', 'var(--bar)'); bar.setAttribute('stroke', v ? 'none' : 'var(--axis)');
+      const title = document.createElementNS(ns, 'title');
+      title.textContent = `Week of ${fmtDate(r.week_start)}: ${v} mentions, ${r.distinct_issues} distinct issues`;
+      g.append(title, hit, bar); svg.append(g);
+      if (i % 2 === 0 || rows.length <= 6) add('text', { x: x + bw / 2, y: H - 8, 'text-anchor': 'middle' }, new Date(r.week_start + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' }));
+    });
+    add('line', { x1: padL, x2: W, y1: y(0), y2: y(0), stroke: 'var(--axis)', 'stroke-width': 1 });
+    $('tr-chart').replaceChildren(svg);
+  } catch (e) { fail($('tr-chart'), e); }
+}
+
+// ---------- review queue ----------
+async function loadQueue() {
+  try {
+    const rows = await rpc('review_queue');
+    $('q-title').textContent = `Review queue: ${rows.length} left`;
+    $('q-rows').replaceChildren(...rows.slice(0, 200).map((r) => el('tr', {},
+      el('td', {}, r.confidence || '', r.status === 'Unsure' ? el('div', { class: 'small' }, 'Unsure') : ''),
+      el('td', {}, sevBadge(r.severity), el('div', { class: 'small' }, r.theme)),
+      el('td', { class: 'quote' }, quote(r.feedback_text), r.injection_suspected ? el('div', { class: 'flag' }, 'Possible prompt injection: review by hand') : ''),
+      el('td', { class: 'small' }, r.claude_reason || ''),
+      el('td', { class: 'num' }, `${r.days_waiting} d`),
+      el('td', {}, openLink(r.fb_id)))));
+    if (!rows.length) $('q-rows').replaceChildren(el('tr', {}, el('td', { colspan: 6, class: 'empty' }, 'Queue is empty.')));
+  } catch (e) { fail($('q-rows'), e); }
+}
+
+// ---------- explore ----------
+let all = null;
+async function loadExplore() {
+  try {
+    await fillTaxonomySelects();
+    all = await rest(`feedback?select=${COLS}&${NOT_ARCHIVED}&order=feedback_date.desc`);
+    ['ex-q', 'ex-sent', 'ex-sev', 'ex-theme', 'ex-area'].forEach((id) => $(id).addEventListener('input', drawExplore));
+    drawExplore();
+  } catch (e) { fail($('ex-rows'), e); }
+}
+function drawExplore() {
+  const q = $('ex-q').value.trim().toLowerCase();
+  const rows = all.filter((r) =>
+    (!q || (r.feedback_text || '').toLowerCase().includes(q)) &&
+    (!$('ex-sent').value || r.sentiment === $('ex-sent').value) &&
+    (!$('ex-sev').value || r.severity === $('ex-sev').value) &&
+    (!$('ex-theme').value || r.theme === $('ex-theme').value) &&
+    (!$('ex-area').value || r.product_area === $('ex-area').value));
+  $('ex-n').textContent = `Showing ${rows.length} of ${all.length} rows.${rows.length && rows.length < CONFIG.SMALL ? ' Fewer than 10: directional.' : ''} For counts by theme, use Overview: it groups near-duplicates.`;
+  $('ex-rows').replaceChildren(...rows.slice(0, 200).map((r) => el('tr', {},
+    el('td', { class: 'num' }, fmtDate(r.feedback_date)),
+    el('td', { class: 'quote' }, quote(r.feedback_text), r.injection_suspected ? el('div', { class: 'flag' }, 'Possible prompt injection: review by hand') : ''),
+    el('td', {}, sevBadge(r.severity), ' ', r.theme || 'Not tagged yet', el('div', { class: 'small' }, [r.product_area, r.sentiment].filter(Boolean).join(' · '))),
+    el('td', {}, who(r)),
+    el('td', {}, r.status || ''),
+    el('td', {}, openLink(r.fb_id)))));
+}
+
+// ---------- taxonomy: selects and the severity rubric ----------
+let taxonomy = null;
+async function getTaxonomy() {
+  if (!taxonomy) taxonomy = await rest('taxonomy?select=field,value,definition&order=field,value');
+  return taxonomy;
+}
+async function fillTaxonomySelects() {
+  const t = await getTaxonomy();
+  const fill = (id, field) => {
+    const s = $(id);
+    if (s.options.length > 1) return;
+    t.filter((r) => r.field === field).forEach((r) => s.append(el('option', {}, r.value)));
+  };
+  fill('tr-theme', 'theme'); fill('tr-area', 'product_area'); fill('ex-theme', 'theme'); fill('ex-area', 'product_area');
+}
+async function loadRubric() {
+  try {
+    const order = ['Sev1', 'Sev2', 'Sev3', 'None'];
+    const sev = (await getTaxonomy()).filter((r) => r.field === 'severity').sort((a, b) => order.indexOf(a.value) - order.indexOf(b.value));
+    $('rubric-list').replaceChildren(...sev.flatMap((r) => [el('dt', {}, r.value === 'None' ? 'None' : el('span', { class: `sev ${r.value}` }, r.value)), el('dd', { style: 'margin:0' }, r.definition)]));
+  } catch (e) { fail($('rubric-list'), e); }
+}
+
+// ---------- start ----------
+loadHeader();
+loadRubric();
+function fromHash() {
+  const id = (location.hash || '#overview').slice(1);
+  if (loaders[id]) show(id);
+}
+window.addEventListener('hashchange', fromHash);
+if (!loaders[(location.hash || '#overview').slice(1)]) show('overview'); else fromHash();
+</script>
+</body>
+</html>

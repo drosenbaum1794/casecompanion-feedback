@@ -17,7 +17,7 @@
 
 **4. The value that lands is time saved on document-heavy work.** The 45 praise rows are concrete and quotable: 400+ pages sorted "in an hour" instead of two days, a 300-page deposition summarized to 5 pages "in minutes," 200 medical records summarized in 30 minutes, trial prep "reduced by 60%," redaction cut from a full day to 30 minutes.
 
-**5. The most hands-on users report the most serious problems.** Paralegals: 79% of their rows are complaints, against 38% for attorneys. Large firms: 71% complaints and 61% Sev1 or Sev2, against 38% and 19% for small firms. Heavy users (top quartile, 523+ queries a month): 52% Sev1 or Sev2, against 35% for everyone else. All 8 Sev1 rows come from medium or large firms. Tenure makes no difference (56% vs 55%).
+**5. The most hands-on users report the most serious problems.** Paralegals: 79% of their rows are complaints, against 38% for attorneys. Large firms: 71% complaints and 61% Sev1 or Sev2, against 38% and 19% for small firms. Heavy users (top quarter, 512+ queries a month): 48% Sev1 or Sev2, against 36% for everyone else. All 8 Sev1 rows come from medium or large firms. Tenure makes no difference (56% vs 55%).
 
 **How to read the raw data.** 55 complaint mentions collapse to 43 distinct issues once near-identical feedback is grouped by text similarity (Supabase `theme_summary`). Keyword counts mislead in both directions: 16 rows say "inaccurate" or "incorrect," but only 4 of those are Sev1, and half the Sev1 rows use neither word. Channel isn't sentiment: 4 of 20 bug reports are praise. And none of the 100 rows is about asking CaseCompanion a question. The feedback spans 10 product areas.
 

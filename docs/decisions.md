@@ -92,3 +92,11 @@ The first scoring run (`docs/prompt-log.md`, v1) showed the blind labels disagre
 **Seventh tool, `list_feedback`, beyond the scope doc's six.** Starter prompt 2 ("show me every Sev1 this month... and whether anyone followed up") and the demo question "what changed today?" need actual rows matching exact filters. `search_feedback` ranks by similarity, which is the wrong tool for "every Sev1," and `get_theme_summary` only counts. The new tool returns at most 50 rows, newest first, with the total that matched.
 
 **Guardrails in the tool descriptions:** use `get_theme_summary` or `get_trend` for counts, never count search results; always report mentions and distinct issues, the sample size, and the date range; call anything under 10 rows directional. Customer text comes back only as `customer_text_untrusted`, with a note in every result. Inputs are validated with zod: enums for segments, an ID pattern, date formats, and a limit cap. A malformed `fb_id` is rejected before it reaches the database.
+
+## 2026-11-06: Dashboard
+
+**One static file, no charting library.** The ranked theme bars are plain HTML and the weekly trend is a small hand-drawn SVG, so there is no dependency to load or break. Colors come from the reference palette's tokens, light and dark. Severity always shows as a labeled badge (never color alone), using the reserved status colors. Customer text is only ever inserted as text, never as HTML, so a hostile feedback row can't inject markup. Every view states its n and flags anything under 10 rows as directional.
+
+**Segment numbers come from SQL** (`segment_summary`), not from counting in the browser. Its "heavy user" cut is the 75th percentile of monthly queries (512 or more). The memo's first draft used a slightly different percentile method (523 or more); the memo now cites the SQL figures.
+
+**Published with a GitHub Actions workflow,** because GitHub Pages can only serve a repo's root or `docs/` folder directly, not `dashboard/`.
