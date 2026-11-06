@@ -24,3 +24,13 @@ Design choices and why, logged as they happen. Newest at the bottom.
 **Part 1 draft moved after labeling.** The scope doc lists the Part 1 draft first on Day 1. But a draft would describe which issues look like Sev1s, and reading it would bias Dan's blind labels. Claude drafts Part 1 after Dan finishes labeling.
 
 **Taxonomy proposal is a review, not an independent proposal.** Claude had already read the draft taxonomy before reading the data, so `docs/taxonomy-v1-proposal.md` is the draft tested against all 100 rows, with changes where the data didn't fit.
+
+## 2026-11-06: Taxonomy v1 locked
+
+**Approved as proposed** (`docs/taxonomy-v1.md`). Added Feature request; added Legal research and Billing and practice management; renamed Case valuation and damages; sharper Sev1 vs Sev2 line; tie-break rules; examples drawn only from non-eval rows.
+
+**`question_type` dropped.** None of the 100 rows is a question asked of CaseCompanion, so the field would be "Not applicable" on every row. This changes the scope doc in several places, which the build follows from here on: the Feedback tab has no `question_type` column, the Claude Suggestions tab and tagging prompt drop it, and the Supabase schema and MCP filters leave it out. The scope doc itself is left as written; this entry is the record of the change.
+
+**Taxonomy and Eval tabs built in the working sheet.** The Taxonomy tab holds 30 values with definitions, examples, and `version = v1`. The Eval tab holds the 40 eval rows with context and four dropdown label columns (sentiment, theme, product area, severity) fed from the Taxonomy tab, plus free-text notes. Both tabs are protected so only Dan can edit them. Eval stays visible while Dan labels, and gets hidden afterwards.
+
+**Leak guard for the final eval check.** Dan's labels will sit in the same spreadsheet the tagging task reads. The tagging prompt must name the only tabs it may open (Taxonomy, Feedback, Claude Suggestions) and explicitly forbid the Eval tab, and the final scored run should confirm in version history that the task never read it.

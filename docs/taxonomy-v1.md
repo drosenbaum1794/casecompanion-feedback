@@ -1,6 +1,6 @@
-# Taxonomy v1: proposal
+# Taxonomy v1
 
-Status: **proposal, waiting for Dan's approval.** Once approved, this becomes the Taxonomy tab and `taxonomy_version = v1`.
+Status: **locked as v1 on 2026-11-06.** Dan approved all changes, including dropping `question_type`. The live copy is the sheet's Taxonomy tab, which drives every dropdown.
 
 Method: Claude read all 100 rows and tested the scope doc's draft against them, row by row. One caveat: Claude had already read the draft, so this is a review of the draft against the data, not a fully independent proposal.
 
@@ -82,8 +82,6 @@ The Sev1 definition names categories of legal harm (deadlines, privilege, filing
 
 High, Medium, Low, unchanged from the draft.
 
-## Decisions needed from Dan
+## Decisions
 
-1. Approve changes 1 to 6 as proposed, or edit them.
-2. Drop `question_type` (recommended) or keep it.
-3. Approve the replacement examples (change 8).
+Approved by Dan on 2026-11-06: changes 1 to 8 as proposed, with `question_type` dropped.
