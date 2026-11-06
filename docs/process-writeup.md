@@ -1,4 +1,4 @@
-# Process write-up
+# Part 2: process write-up
 
 Daniel Rosenbaum · Nov 8, 2026. How this was scoped, prompted, evaluated, and tested. Details live in the linked logs; this page is the summary.
 

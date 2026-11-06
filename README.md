@@ -4,20 +4,28 @@ A small, self-updating system that turns raw CaseCompanion customer feedback int
 
 Built in three days as a take-home for EvenUp. It is a working proof of concept over mock data, not a product.
 
-## Try it
+## The three parts
 
-| What | Where |
+**Part 1: what the data says.** One-page memo with core insights, supporting numbers, recommended research, and product implications: [docs/part1-insights.md](docs/part1-insights.md)
+
+**Part 2: the working tool.** A pipeline that tags new feedback with no manual steps, plus three ways to use it:
+
+| Try it | Where |
 | --- | --- |
-| Walkthrough video (3 min) | VIDEO_LINK |
-| Dashboard | https://drosenbaum1794.github.io/casecompanion-feedback/ |
-| Live sheet (view only) | https://docs.google.com/spreadsheets/d/1_PnSRLN4Bi822kcznqTyRuQ5gM9zU-3ot0EOjvIbROw/edit |
+| Dashboard: explore, filter, review | https://drosenbaum1794.github.io/casecompanion-feedback/ |
+| Live sheet, where feedback lands and the pipeline runs | https://docs.google.com/spreadsheets/d/1_PnSRLN4Bi822kcznqTyRuQ5gM9zU-3ot0EOjvIbROw/edit |
 | Ask from your own Claude | Add `https://rienopvbkpukefaeynhb.supabase.co/functions/v1/feedback-mcp` as a custom connector (no sign-in), then try the prompts below |
-| **Part 1:** insights memo | [docs/part1-insights.md](docs/part1-insights.md) |
-| **Part 2:** process write-up (scoping, prompting, eval, tests) | [docs/process-writeup.md](docs/process-writeup.md) |
-| **Part 3:** roadmap | [docs/part3-roadmap.md](docs/part3-roadmap.md) |
-| Prompt versions and eval scores | [docs/prompt-log.md](docs/prompt-log.md) |
-| Design decisions, as they were made | [docs/decisions.md](docs/decisions.md) |
-| Test results | [docs/test-results.md](docs/test-results.md) |
+
+How it was built, prompted, and evaluated:
+
+| | |
+| --- | --- |
+| Process write-up: scoping, prompting, eval, tests | [docs/process-writeup.md](docs/process-writeup.md) |
+| Every prompt version and its scores | [docs/prompt-log.md](docs/prompt-log.md) |
+| Design decisions, logged as they were made | [docs/decisions.md](docs/decisions.md) |
+| Test scenarios and results | [docs/test-results.md](docs/test-results.md) |
+
+**Part 3: with a week, more autonomous and self-serve.** What I'd build next and what stays with a human: [docs/part3-roadmap.md](docs/part3-roadmap.md)
 
 **On the dashboard:** a health banner, top issues grouped by distinct issue, every Sev1 with its alert and follow-up status, segments against a baseline, weekly trends, and a review queue that puts Sev1s and flagged rows first. Filters carry across tabs and can be shared as a link. Any view exports to CSV. Reviewers can confirm or fix tags right there: the change is written to the sheet, then synced, in a few seconds.
 
@@ -63,7 +71,7 @@ On a 40-row eval set, hand-labeled blind and then adjudicated against the writte
 | Demo | Production would use |
 | --- | --- |
 | Tagging runs as a scheduled task on a personal Claude account | A direct API call from a service account with schema-enforced output. Only that one step changes, because the agent already writes only to a staging tab. |
-| No sign-in on the dashboard or MCP, over mock data. Anyone with the dashboard link can confirm or fix tags (only taxonomy values, rate-limited, with an off switch in the sheet menu). | Google sign-in with an EvenUp-only allowlist, so every edit is tied to a person |
+| The sheet is editable by anyone with the link, and there is no sign-in on the dashboard or MCP, over mock data. Anyone with the dashboard link can confirm or fix tags (only taxonomy values, rate-limited, with an off switch in the sheet menu). | Google sign-in with an EvenUp-only allowlist, so every edit is tied to a person |
 | Alerts route by firm size to mock CSMs (all to one inbox) | Real account and CSM data from the CRM |
 | One alert channel (email) | Slack plus email |
 | Sync runs as the sheet owner | A service account, so any editor can trigger it |
