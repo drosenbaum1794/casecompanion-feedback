@@ -53,6 +53,26 @@ const CONFIG = {
   ID_LENGTH: 8,
   ID_ALPHABET: 'abcdefghjkmnpqrstuvwxyz23456789', // no 0/o, 1/l/i lookalikes
 
+  // Public by design: the anon key can only read, and row-level security
+  // plus the ingest secret (Script Properties, never in code) guard writes.
+  SHEET_ID: '1_PnSRLN4Bi822kcznqTyRuQ5gM9zU-3ot0EOjvIbROw',
+  SUPABASE_URL: 'https://rienopvbkpukefaeynhb.supabase.co',
+  SUPABASE_ANON_KEY: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJpZW5vcHZia3B1a2VmYWV5bmhiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTM5NTIyNjIsImV4cCI6MjEwOTUyODI2Mn0.UtcqV9GFaEDU05uezWwTSnBCIlwthj2AMbW7Qh99GJ0',
+  WEBAPP_URL: 'https://script.google.com/macros/s/AKfycbyrw_Qrh-TMNRUM5he3VkmEhVkUvVKyvD3MwQ7ApR4cVUa2AIdXGqyave8kpHWTxI7LYQ/exec',
+
+  // Columns left out of the row fingerprint: they are bookkeeping, not data.
+  HASH_EXCLUDE: ['last_synced_hash', 'sync_error', 'error_count'],
+  PUSH_BATCH: 10, // each row may need an embedding; small batches stay under the edge function's CPU limit
+  HEARTBEAT_MINUTES: 25, // an idle sync still logs to Supabase this often, for the health banner
+  TAGGER_STALL_HOURS: 3,
+  FAILURE_ALERT_MINUTES: 60,
+  REPEAT_ALERT_HOURS: 6,
+  ALERT_DIGEST_OVER: 3, // more than this many alerts in one run go out as one digest email
+
+  // Tag fields whose change by a human marks a row Corrected.
+  CORRECTION_FIELDS: ['sentiment', 'theme', 'product_area', 'severity'],
+  STATUS_VALUES: ['Pending', 'Confirmed', 'Corrected', 'Unsure', 'Archived'],
+
   MAX_RUNTIME_MS: 4.5 * 60 * 1000, // Apps Script caps a run at 6 minutes
   MENU_LOCK_WAIT_MS: 20000,
   MAX_REJECTIONS: 3,

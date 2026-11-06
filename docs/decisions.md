@@ -64,3 +64,23 @@ The first scoring run (`docs/prompt-log.md`, v1) showed the blind labels disagre
 **Known limit:** menu items run as whoever clicks them. A rep clicking "Sync now" can't write the protected system columns, so the run fails loudly on the Health tab instead of half-applying. For the demo Dan is the only editor, and the 10-minute trigger runs as Dan. Production would run sync from a service account.
 
 **Logic tests:** `node scripts/test-apps-script.mjs` runs 15 tests on the validation and write-planning functions, including "a human-filled cell is never overwritten" and "a suspected injection forces Low confidence."
+
+## 2026-11-06: Day 2 pipeline design choices
+
+**Session network.** A personal cloud environment, `casecompanion-feedback`, allows exactly one extra host: the Supabase project. Its setup script reinstalls `clasp` and the Supabase CLI. The Default environment was left alone, since every repository uses it.
+
+**The ingest secret never passes through chat or the repo.** The sheet menu "Admin: create ingest secret" generates it inside Apps Script, stores it in Script Properties, and shows it once to Dan. He pastes it into the Supabase secrets form. `ingest` rejects any request without it, and Supabase's own JWT check stays on.
+
+**Readers can't see people.** The `anon` role has column-level grants that leave out `reviewed_by` (emails), `notes`, `follow_up_owner`, and the hashes. Writes are refused at the table level. Every function is SECURITY INVOKER with an empty `search_path`. The only function that writes (`assign_issue_ids`) can't be run by `anon`. Supabase's security advisor reports no issues.
+
+**"Zero calls when idle", with one exception.** An idle sync makes no Supabase calls, except a heartbeat `log_run` at most every 25 minutes. Without it, the dashboard's "last synced" banner would go amber during quiet periods even though the pipeline is healthy. The ID-list reconcile and the taxonomy push only run when their content hash changes.
+
+**Push batch of 10, not 25.** Each new row needs an embedding, and an edge function call has a CPU-time limit. `ingest` still accepts up to 25.
+
+**Alerts.** More than 3 alerts in one run (for example the first backfill, with 8 Sev1 rows) go out as one digest email, not 8. The tagger-stopped check measures how long untagged rows have been waiting since they started waiting, so a quiet night followed by "Simulate new day" doesn't trigger a false alarm.
+
+**Corrected means different from Claude.** The edit handler marks a row Corrected only when a tag now differs from Claude's original. Re-selecting Claude's own value isn't a correction, so the override rate isn't inflated. Pasted values outside the taxonomy turn the cell red and set `sync_error`, which keeps the row out of Supabase until it's fixed.
+
+**Trends anchor to the data, not today.** The data ends in September 2024, so `theme_trend` defaults to the latest feedback date, and the MCP and dashboard say which date range they cover.
+
+**Row-opener web app is anonymous.** It shows only the row number and a button; the sheet itself still requires access. It runs as Dan, because it has to read the sheet to find the row.

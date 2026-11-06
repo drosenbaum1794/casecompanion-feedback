@@ -2,13 +2,15 @@
  * The sync engine. One function, runSync_(), does the work. Entry points:
  *   syncOnTimer()  time-driven, every 10 minutes, skips quietly if busy
  *   syncNow()      "Feedback tools > Sync now" menu item (menu.gs)
+ *   onFeedbackEdit (edit.gs) never syncs; it only stamps fields.
  *
  * Guarantees: never overwrites a human, never runs twice at once, never
  * loses a row silently. Every run is logged to the Health tab.
  *
- * Day 1 steps: lock, read by header, assign IDs, flag duplicate IDs,
- * apply Claude Suggestions. Day 2 adds fingerprinting, the Supabase push,
- * the delete guard, the tagger check, and alerts.
+ * Steps: lock; read by header (abort if a header is missing); assign IDs;
+ * apply Claude Suggestions; send Sev1 alerts; push changed rows to Supabase;
+ * reconcile IDs (delete guard); push the taxonomy if it changed; check that
+ * the tagging task is still running; log the run.
  */
 
 function syncOnTimer() {
@@ -30,22 +32,41 @@ function runSync_(trigger) {
     partly: 0,
     notApplied: 0,
     rejected: 0,
+    alerts: 0,
+    pushed: 0,
+    deactivated: 0,
+    networkCalls: 0,
     errors: [],
     notes: [],
   };
 
+  const step = (name, fn) => {
+    if (!hasTimeLeft_(run)) {
+      run.notes.push(`Time budget reached before "${name}"; it runs next sync.`);
+      return;
+    }
+    try {
+      fn();
+    } catch (e) {
+      run.errors.push(`${name}: ${e && e.message ? e.message : e}`);
+    }
+  };
+
   try {
+    // A missing or renamed header aborts the whole run before anything changes.
     const feedback = readTable_(getSheet_(CONFIG.TABS.FEEDBACK), CONFIG.FEEDBACK_HEADERS);
-    assignIds_(feedback, run);
-    if (hasTimeLeft_(run)) applySuggestions_(feedback, run);
+    step('assign IDs', () => assignIds_(feedback, run));
+    step('apply suggestions', () => applySuggestions_(feedback, run));
+    step('Sev1 alerts', () => sendAlerts_(run));
+    step('push to Supabase', () => pushChanges_(run));
+    step('taxonomy', () => pushTaxonomyIfChanged_(run));
+    step('tagger check', () => checkTagger_(run));
   } catch (e) {
     run.errors.push(e && e.message ? e.message : String(e));
   } finally {
-    try {
-      logHealth_(run);
-    } catch (e) {
-      console.error(`Health log failed: ${e}`);
-    }
+    try { logHealth_(run); } catch (e) { console.error(`Health log failed: ${e}`); }
+    try { logRunToSupabase_(run); } catch (e) { console.error(`Supabase run log failed: ${e}`); }
+    try { alertOnFailure_(run); } catch (e) { console.error(`Failure alert failed: ${e}`); }
     lock.releaseLock();
   }
   return run;
@@ -106,26 +127,30 @@ function ensureCheckbox_(feedback, rowNum) {
   if (!cell.getDataValidation()) cell.insertCheckboxes();
 }
 
+function runSummary_(run) {
+  return run.idsAssigned + run.applied + run.partly + run.rejected + run.alerts + run.pushed + run.deactivated;
+}
+
 /**
  * Writes the run to the Health tab: the last 20 runs, newest first, plus the
- * rows that keep getting rejected suggestions.
+ * rows that need a human (repeated rejections, duplicate IDs, invalid values).
  */
 function logHealth_(run) {
   const sheet = getSheet_(CONFIG.TABS.HEALTH);
+  const width = 11;
   const result = run.errors.length ? 'ERROR' : 'OK';
   const notes = [...run.errors.map((e) => `ERROR: ${e}`), ...run.notes].join(' | ');
   const newRow = [
-    run.startedAt, run.trigger, result, run.idsAssigned, run.applied, run.partly,
-    run.rejected, run.duplicateIds, ((Date.now() - run.startMs) / 1000).toFixed(1),
-    notes || (run.idsAssigned + run.applied + run.partly + run.rejected ? '' : 'no changes'),
+    run.startedAt, run.trigger, result, run.idsAssigned, run.applied, run.partly, run.rejected,
+    run.pushed, run.alerts, ((Date.now() - run.startMs) / 1000).toFixed(1),
+    notes || (runSummary_(run) ? '' : 'no changes'),
   ];
   const keep = CONFIG.HEALTH_KEEP_RUNS;
-  const old = sheet.getRange(2, 1, keep, 10).getValues().filter((r) => r[0] !== '');
+  const old = sheet.getRange(2, 1, keep, width).getValues().filter((r) => r[0] !== '');
   const log = [newRow, ...old].slice(0, keep);
-  while (log.length < keep) log.push(new Array(10).fill(''));
-  sheet.getRange(2, 1, keep, 10).setValues(log);
+  while (log.length < keep) log.push(new Array(width).fill(''));
+  sheet.getRange(2, 1, keep, width).setValues(log);
 
-  // Rows whose suggestions were rejected 3+ times go here instead of looping forever.
   const attention = [];
   try {
     const fb = readTable_(getSheet_(CONFIG.TABS.FEEDBACK), ['fb_id', 'error_count', 'sync_error']);

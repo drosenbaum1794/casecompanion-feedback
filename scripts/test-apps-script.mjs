@@ -6,10 +6,10 @@ import vm from 'node:vm';
 import assert from 'node:assert/strict';
 
 const ctx = vm.createContext({ console });
-for (const f of ['config.gs', 'apply.gs']) {
+for (const f of ['config.gs', 'apply.gs', 'edit.gs', 'alerts.gs', 'push.gs']) {
   vm.runInContext(readFileSync(new URL(`../apps-script/${f}`, import.meta.url), 'utf8'), ctx, { filename: f });
 }
-const { validateSuggestion_, planRowWrite_ } = ctx;
+const { validateSuggestion_, planRowWrite_, planEditRow_, selectAlertRows_, rowFingerprint_ } = ctx;
 
 const taxonomy = {
   sentiment: new Set(['Positive', 'Negative', 'Mixed']),
@@ -85,6 +85,87 @@ test('suspected injection forces confidence Low', () => {
   assert.equal(p.writes.confidence, 'Low');
   assert.equal(p.writes.injection_suspected, 'TRUE');
   assert.equal(p.writes.status, 'Pending');
+});
+
+console.log('planEditRow_ (human edits)');
+const tax = {
+  sentiment: ['Positive', 'Negative', 'Mixed'],
+  theme: ['Wrong output', 'Usability'],
+  product_area: ['Medical records'],
+  severity: ['Sev1', 'Sev2', 'Sev3', 'None'],
+  confidence: ['High', 'Medium', 'Low'],
+};
+const m = { who: 'rep@example.com', now: 'NOW' };
+const tagged = {
+  fb_id: 'fb_abc12345', feedback_text: 'x', sentiment: 'Negative', theme: 'Wrong output',
+  product_area: 'Medical records', severity: 'Sev2', confidence: 'High', status: 'Pending',
+  claude_sentiment: 'Negative', claude_theme: 'Wrong output', claude_product_area: 'Medical records',
+  claude_severity: 'Sev2', alerted_at: '', sync_error: '',
+};
+test('changing a tag on a Pending row marks it Corrected and stamps the reviewer', () => {
+  const p = planEditRow_({ ...tagged, theme: 'Usability' }, ['theme'], tax, m);
+  assert.equal(p.writes.status, 'Corrected');
+  assert.equal(p.writes.reviewed_by, 'rep@example.com');
+  assert.equal(p.writes.reviewed_at, 'NOW');
+});
+test('re-selecting Claude\'s own value is not a correction', () => {
+  const p = planEditRow_({ ...tagged }, ['theme'], tax, m);
+  assert.equal('status' in p.writes, false);
+});
+test('setting status Confirmed stamps the reviewer, nothing else', () => {
+  const p = planEditRow_({ ...tagged, status: 'Confirmed' }, ['status'], tax, m);
+  assert.equal(p.writes.reviewed_by, 'rep@example.com');
+  assert.equal('status' in p.writes, false);
+});
+test('an Unsure row stays Unsure when a tag changes', () => {
+  const p = planEditRow_({ ...tagged, status: 'Unsure', theme: 'Usability' }, ['theme'], tax, m);
+  assert.equal('status' in p.writes, false);
+});
+test('a pasted typo is flagged invalid and blocks the sync', () => {
+  const p = planEditRow_({ ...tagged, theme: 'Acuracy' }, ['theme'], tax, m);
+  assert.deepEqual([...p.invalid], ['theme']);
+  assert.equal(p.writes.sync_error, 'invalid value in theme');
+});
+test('fixing the typo clears the sync block', () => {
+  const p = planEditRow_({ ...tagged, theme: 'Usability', sync_error: 'invalid value in theme' }, ['theme'], tax, m);
+  assert.equal(p.writes.sync_error, '');
+});
+test('a duplicate-id error is never cleared by an edit', () => {
+  const p = planEditRow_({ ...tagged, theme: 'Usability', sync_error: 'duplicate id' }, ['theme'], tax, m);
+  assert.equal('sync_error' in p.writes, false);
+});
+test('raising severity to Sev1 clears alerted_at so the alert fires', () => {
+  const p = planEditRow_({ ...tagged, severity: 'Sev1', alerted_at: '11/6/2026' }, ['severity'], tax, m);
+  assert.equal(p.writes.alerted_at, '');
+});
+test('a multi-column paste checks every edited field', () => {
+  const p = planEditRow_({ ...tagged, theme: 'Nope', severity: 'High' }, ['theme', 'product_area', 'severity'], tax, m);
+  assert.deepEqual([...p.invalid], ['theme', 'severity']);
+});
+test('an empty row is ignored', () => {
+  assert.equal(planEditRow_({ fb_id: '', feedback_text: '' }, ['theme'], tax, m), null);
+});
+
+console.log('selectAlertRows_');
+const row = (v) => ({ values: { fb_id: 'fb_aaaaaaaa', theme: 'Wrong output', severity: 'Sev2', confidence: 'High', status: 'Pending', alerted_at: '', sync_error: '', ...v } });
+test('Sev1 alerts once', () => {
+  assert.equal(selectAlertRows_([row({ severity: 'Sev1' })])[0].kind, 'Sev1');
+  assert.equal(selectAlertRows_([row({ severity: 'Sev1', alerted_at: 'x' })]).length, 0);
+});
+test('Wrong output Sev2 at Low confidence is a possible Sev1', () => {
+  assert.equal(selectAlertRows_([row({ confidence: 'Low' })])[0].kind, 'Possible Sev1');
+  assert.equal(selectAlertRows_([row({ confidence: 'Low', theme: 'Bug or reliability' })]).length, 0);
+});
+test('Archived and untagged rows never alert', () => {
+  assert.equal(selectAlertRows_([row({ severity: 'Sev1', status: 'Archived' }), row({ severity: 'Sev1', theme: '' })]).length, 0);
+});
+
+console.log('rowFingerprint_');
+test('fingerprint changes when any synced field changes, ignores whitespace', () => {
+  const h = ['a', 'b'];
+  assert.equal(rowFingerprint_({ a: ' 1 ', b: '2' }, h), rowFingerprint_({ a: '1', b: '2' }, h));
+  assert.notEqual(rowFingerprint_({ a: '1', b: '2' }, h), rowFingerprint_({ a: '1', b: '3' }, h));
+  assert.notEqual(rowFingerprint_({ a: '12', b: '' }, h), rowFingerprint_({ a: '1', b: '2' }, h));
 });
 
 console.log(`\n${passed} tests passed`);

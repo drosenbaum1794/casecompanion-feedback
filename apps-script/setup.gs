@@ -4,9 +4,9 @@
  * the script writes protected system columns that only he can edit.
  */
 function installTriggers() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
   for (const t of ScriptApp.getProjectTriggers()) ScriptApp.deleteTrigger(t);
   ScriptApp.newTrigger('syncOnTimer').timeBased().everyMinutes(10).create();
-  // Day 2: installable onEdit handler for human corrections.
-  SpreadsheetApp.getActiveSpreadsheet().toast(
-    'Triggers installed: sync runs every 10 minutes.', 'Feedback tools', 8);
+  ScriptApp.newTrigger('onFeedbackEdit').forSpreadsheet(ss).onEdit().create();
+  ss.toast('Triggers installed: sync every 10 minutes, plus the edit handler.', 'Feedback tools', 8);
 }
