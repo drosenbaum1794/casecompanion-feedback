@@ -34,3 +34,13 @@ Design choices and why, logged as they happen. Newest at the bottom.
 **Taxonomy and Eval tabs built in the working sheet.** The Taxonomy tab holds 30 values with definitions, examples, and `version = v1`. The Eval tab holds the 40 eval rows with context and four dropdown label columns (sentiment, theme, product area, severity) fed from the Taxonomy tab, plus free-text notes. Both tabs are protected so only Dan can edit them. Eval stays visible while Dan labels, and gets hidden afterwards.
 
 **Leak guard for the final eval check.** Dan's labels will sit in the same spreadsheet the tagging task reads. The tagging prompt must name the only tabs it may open (Taxonomy, Feedback, Claude Suggestions) and explicitly forbid the Eval tab, and the final scored run should confirm in version history that the task never read it.
+
+## 2026-11-06: Eval labels need an adjudication pass
+
+The first scoring run (`docs/prompt-log.md`, v1) showed the blind labels disagree with the locked taxonomy text and with themselves on near-duplicate pairs (theme 4/8 pairs consistent, product area 4/8). With noisy labels, the eval can't tell a good prompt from a bad one. Standard fix: one adjudication pass where the labeler re-checks only flagged rows.
+
+**Guard against biasing the labels toward Claude:** the flags are computed only from the taxonomy's wording and the labeler's own duplicate-pair labels. Claude's tags are never shown during adjudication. Dan may keep any original label he still believes; if he keeps one that contradicts the taxonomy wording, the taxonomy wording changes instead (v2).
+
+**Both numbers get reported:** v1 against the original blind labels and against the adjudicated labels. Blind labels stay in `data/eval-labels-blind.csv`.
+
+**Product finding for the rep workflow:** the Eval tab's dropdowns showed value names without definitions, which sit on a separate tab. That likely contributed to the product-area misses, and reps confirming tags would hit the same problem. The My Queue tab should show the definition next to each tag, or the dropdown should carry help text.
