@@ -156,3 +156,7 @@ The scope said the sheet is the only place people edit. Dan asked for the dashbo
 - **Safe without sign-in, for demo data:** only taxonomy values can be written. The optional name is cleaned so it can't start like a formula, and it is capped at 40 characters. There is a global limit of 30 edits a minute. An off switch is in the sheet menu (Admin: turn dashboard editing off). Raising a row to Sev1 sends the alert email, as it would from the sheet.
 - **Known limits:** anyone with the dashboard link can change tags, and the sheet's version history shows Dan's account for every dashboard edit, because the web app runs as its owner. With real customer data this needs sign-in (Google sign-in with an allow list); that belongs in the Part 3 roadmap.
 - **Also:** the health banner and live line now fit on one row on a laptop screen.
+
+## 2026-11-06: Dashboard saves push one row, not a full sync
+
+Dan saw saves take 5 to 10 seconds. `sync_runs` showed why: each dashboard save ran a full sync, which took 5.3 to 6.9 seconds (reading and fingerprinting every row, suggestions, alerts, the ID check, the taxonomy and tagger checks, and two logs). A save now pushes only the edited row, under the same lock as the sync, with the same fingerprint and payload. `last_synced_hash` is written only when Supabase confirms it stored the row, so a failed quick push is retried by the next 10-minute sync. A row raised to Sev1 still alerts right away. These saves no longer add a row to `sync_runs` or the Health tab; the edit itself still shows in `change_log`.

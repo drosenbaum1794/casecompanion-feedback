@@ -1,7 +1,10 @@
 /**
  * Review from the dashboard. The sheet stays the source of truth: the
  * dashboard POSTs a decision here, this writes it to the Feedback tab, then
- * runs a sync so Supabase (and the dashboard) catch up in seconds.
+ * pushes just that row to Supabase so the dashboard catches up in seconds.
+ * (A full sync took 5 to 7 seconds; one row is a single call.) Everything
+ * else, like suggestions, the delete guard, and health logs, stays with the
+ * 10-minute sync, which also retries this row if the quick push failed.
  *
  * Open by design, for the demo: no sign-in. What keeps it safe without one:
  *   - only taxonomy values can be written, plus an optional, cleaned name
@@ -38,20 +41,49 @@ function doPost(e) {
   let result;
   try {
     result = applyDashboardEdit_(req);
+    if (result.ok) {
+      SpreadsheetApp.flush();
+      // Same lock as the sync, so the two never write last_synced_hash at once.
+      try {
+        result.synced = pushOneRow_(result.fb_id);
+      } catch (err) {
+        result.synced = false;
+        console.error(`Quick push of ${result.fb_id} failed: ${err}`);
+      }
+      // A row raised to Sev1 alerts now, as the next sync would.
+      if (result.severity === 'Sev1') {
+        try { sendAlerts_({ alerts: 0, notes: [], errors: [] }); } catch (err) { console.error(`Sev1 alert failed: ${err}`); }
+      }
+      result.sync = result.synced ? 'Saved to the sheet and synced.' : 'Saved to the sheet. It reaches the dashboard on the next sync, within 10 minutes.';
+    }
   } catch (err) {
     result = { ok: false, error: `Could not save: ${err && err.message ? err.message : err}` };
   } finally {
     lock.releaseLock();
   }
-  if (!result.ok) return json_(result);
-
-  // Push to Supabase now rather than waiting for the 10-minute timer.
-  const run = runSync_('dashboard');
-  if (run.busy) result.sync = 'A sync is already running; it will carry this change.';
-  else if (run.errors.length) result.sync = `Saved to the sheet. The sync reported: ${run.errors[0]}`;
-  else result.sync = 'Saved to the sheet and synced.';
-  result.synced = !run.busy && !run.errors.length;
   return json_(result);
+}
+
+/**
+ * Pushes one row to Supabase, with the same fingerprint and payload as the
+ * sync. last_synced_hash is written only if Supabase confirms it stored the
+ * row, so a failed push is retried by the next sync. Returns true if synced.
+ */
+function pushOneRow_(fbId) {
+  if (!PropertiesService.getScriptProperties().getProperty('INGEST_SECRET')) return false;
+  const table = readTableWithRaw_(getSheet_(CONFIG.TABS.FEEDBACK), CONFIG.FEEDBACK_HEADERS);
+  const hits = table.rows.filter((r) => r.values.fb_id === fbId);
+  if (hits.length !== 1) return false;
+  const r = hits[0];
+  if (r.values.sync_error || !r.values.feedback_text) return false;
+  const hashHeaders = CONFIG.FEEDBACK_HEADERS.filter((h) => !CONFIG.HASH_EXCLUDE.includes(h));
+  const hash = sha256Hex_(rowFingerprint_(r.values, hashHeaders));
+  if (hash === r.values.last_synced_hash) return true;
+  const payload = buildPayload_(r, hash, sha256Hex_(r.values.feedback_text), Session.getScriptTimeZone());
+  const res = callIngest_('upsert', { rows: [payload] }, null);
+  if (!(res.stored || []).includes(fbId)) return false;
+  table.sheet.getRange(r.rowNum, table.col.last_synced_hash).setValue(hash);
+  return true;
 }
 
 function applyDashboardEdit_(req) {
@@ -83,7 +115,7 @@ function applyDashboardEdit_(req) {
     if (value === '') cell.clearContent();
     else cell.setValue(value);
   }
-  return { ok: true, fb_id: id, status: plan.writes.status, row: rowNum };
+  return { ok: true, fb_id: id, status: plan.writes.status, severity: plan.writes.severity || current.severity, row: rowNum };
 }
 
 /**
