@@ -40,8 +40,14 @@ function createIngestSecret() {
   }
   const secret = (Utilities.getUuid() + Utilities.getUuid()).replace(/-/g, '');
   props.setProperty('INGEST_SECRET', secret);
-  ui.alert('Ingest secret created',
-    'Copy this value now. Paste it into Supabase as the INGEST_SECRET edge function secret. ' +
-    'It is saved in this script\'s properties and will not be shown again.\n\n' + secret,
-    ui.ButtonSet.OK);
+  // The code sits alone in its own box with a Copy button, so the
+  // instructions can't be copied along with it.
+  const html = `<div style="font-family:system-ui,sans-serif;font-size:14px">
+    <p>Paste this into Supabase as the value of the <b>INGEST_SECRET</b> edge function secret.
+    It is 64 characters and will not be shown again.</p>
+    <input id="s" readonly value="${secret}" style="width:100%;font-family:monospace;font-size:13px;padding:6px">
+    <p><button onclick="var s=document.getElementById('s');s.select();navigator.clipboard.writeText(s.value)
+      .then(function(){document.getElementById('m').textContent='Copied. Now paste it into Supabase.';})"
+      style="padding:8px 14px">Copy code</button> <span id="m" style="color:#188038"></span></p></div>`;
+  ui.showModalDialog(HtmlService.createHtmlOutput(html).setWidth(520).setHeight(200), 'Ingest secret created');
 }
