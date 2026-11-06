@@ -975,22 +975,54 @@ function confetti(from) {
     ], { duration: 1100 + Math.random() * 500, easing: 'cubic-bezier(.2,.7,.4,1)' }).onfinish = () => p.remove();
   }
 }
+// The decision shows on screen right away; the save confirms it a few seconds
+// later, or puts the row back if it fails. Live refresh waits while saves run,
+// so stale data can't briefly undo what the reviewer just did.
+let savesInFlight = 0;
+function patchLocal(fbId, patch, leaveQueue) {
+  for (const list of [all, sev1Rows]) for (const x of list || []) if (x.fb_id === fbId) Object.assign(x, patch);
+  if (queueRows) {
+    if (leaveQueue) queueRows = queueRows.filter((x) => x.fb_id !== fbId);
+    else for (const x of queueRows) if (x.fb_id === fbId) Object.assign(x, patch);
+  }
+}
+function redrawRows() {
+  if (currentTab === 'queue' && queueRows) drawQueue();
+  if (currentTab === 'explore' && all) drawExplore();
+}
 async function sendReview(r, action, set, buttons) {
   buttons.forEach((b) => { b.disabled = true; });
+  const fbId = r.fb_id;
+  const expected = expectedOf(r);
+  const before = { ...r };
+  const copy = (list) => (list ? list.map((x) => (x.fb_id === fbId ? { ...x } : x)) : null);
+  const queueBefore = copy(queueRows), allBefore = copy(all), sev1Before = copy(sev1Rows);
+  if (action === 'unsure') patchLocal(fbId, { status: 'Unsure', priority: r.priority || 'Marked Unsure' }, false);
+  else patchLocal(fbId, { ...(set || {}), status: 'Saving' }, true);
+  redrawRows();
   toastSaving();
+  savesInFlight++;
+  const undo = () => { queueRows = queueBefore; all = allBefore; sev1Rows = sev1Before; Object.assign(r, before); redrawRows(); };
   try {
     const res = await fetch(CONFIG.WEBAPP_URL, { method: 'POST',
-      body: JSON.stringify({ action, fb_id: r.fb_id, expected: expectedOf(r), set: set || {}, who: savedName() }) });
+      body: JSON.stringify({ action, fb_id: fbId, expected, set: set || {}, who: savedName() }) });
     const out = await res.json();
+    savesInFlight--;
     if (!out.ok) {
+      undo();
       toast(out.error || 'Could not save.', true);
       buttons.forEach((b) => { b.disabled = false; });
       if (out.conflict) refreshAll();
       return;
     }
+    if (out.ms) console.info(`Saved ${fbId}: sheet ${out.ms.sheet} ms, push ${out.ms.push} ms, round trip measured in the browser.`);
+    patchLocal(fbId, { status: out.status }, false);
+    redrawRows();
     toastSaved(out.synced);
     refreshAll();
   } catch (e) {
+    savesInFlight--;
+    undo();
     toast(`Could not reach the sheet (${e.message}). Nothing was changed. Try again, or use Open row.`, true);
     buttons.forEach((b) => { b.disabled = false; });
   }
@@ -1328,7 +1360,7 @@ function renderLive() {
     : `Live: refreshes every ${CONFIG.REFRESH_MS / 1000} seconds${lastChecked ? `, last checked ${lastChecked.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', second: '2-digit' })}` : ''}. "New" means arrived after ${clock(OPENED)}.`;
 }
 async function refreshAll() {
-  if (refreshing) return;
+  if (refreshing || savesInFlight > 0) return;
   refreshing = true;
   try {
     // Other tabs reload fresh when opened next.

@@ -40,12 +40,16 @@ function doPost(e) {
   if (!lock.tryLock(20000)) return json_({ ok: false, error: 'The sheet is busy syncing. Try again in a few seconds.' });
   let result;
   try {
+    const t0 = Date.now();
     result = applyDashboardEdit_(req);
+    const ctx = result.ctx;
+    delete result.ctx;
+    result.ms = { sheet: Date.now() - t0 };
     if (result.ok) {
-      SpreadsheetApp.flush();
       // Same lock as the sync, so the two never write last_synced_hash at once.
+      const t1 = Date.now();
       try {
-        result.synced = pushOneRow_(result.fb_id);
+        result.synced = pushOneRow_(ctx, result.fb_id);
       } catch (err) {
         result.synced = false;
         console.error(`Quick push of ${result.fb_id} failed: ${err}`);
@@ -54,6 +58,7 @@ function doPost(e) {
       if (result.severity === 'Sev1') {
         try { sendAlerts_({ alerts: 0, notes: [], errors: [] }); } catch (err) { console.error(`Sev1 alert failed: ${err}`); }
       }
+      result.ms.push = Date.now() - t1;
       result.sync = result.synced ? 'Saved to the sheet and synced.' : 'Saved to the sheet. It reaches the dashboard on the next sync, within 10 minutes.';
     }
   } catch (err) {
@@ -65,24 +70,30 @@ function doPost(e) {
 }
 
 /**
- * Pushes one row to Supabase, with the same fingerprint and payload as the
- * sync. last_synced_hash is written only if Supabase confirms it stored the
+ * Pushes the edited row to Supabase, with the same fingerprint and payload as
+ * the sync. Reads only that one row (the full-sheet read was most of the
+ * wait). last_synced_hash is written only if Supabase confirms it stored the
  * row, so a failed push is retried by the next sync. Returns true if synced.
  */
-function pushOneRow_(fbId) {
+function pushOneRow_(ctx, fbId) {
   if (!PropertiesService.getScriptProperties().getProperty('INGEST_SECRET')) return false;
-  const table = readTableWithRaw_(getSheet_(CONFIG.TABS.FEEDBACK), CONFIG.FEEDBACK_HEADERS);
-  const hits = table.rows.filter((r) => r.values.fb_id === fbId);
-  if (hits.length !== 1) return false;
-  const r = hits[0];
-  if (r.values.sync_error || !r.values.feedback_text) return false;
+  if (CONFIG.FEEDBACK_HEADERS.some((h) => !(h in ctx.col))) return false;
+  const range = ctx.sheet.getRange(ctx.rowNum, 1, 1, ctx.width);
+  const disp = range.getDisplayValues()[0]; // also applies the writes made just before
+  const raw = range.getValues()[0];
+  const r = { rowNum: ctx.rowNum, values: {}, raw: {} };
+  for (const [h, c] of Object.entries(ctx.col)) {
+    r.values[h] = String(disp[c - 1]).trim();
+    r.raw[h] = raw[c - 1];
+  }
+  if (r.values.fb_id !== fbId || r.values.sync_error || !r.values.feedback_text) return false;
   const hashHeaders = CONFIG.FEEDBACK_HEADERS.filter((h) => !CONFIG.HASH_EXCLUDE.includes(h));
   const hash = sha256Hex_(rowFingerprint_(r.values, hashHeaders));
   if (hash === r.values.last_synced_hash) return true;
   const payload = buildPayload_(r, hash, sha256Hex_(r.values.feedback_text), Session.getScriptTimeZone());
   const res = callIngest_('upsert', { rows: [payload] }, null);
   if (!(res.stored || []).includes(fbId)) return false;
-  table.sheet.getRange(r.rowNum, table.col.last_synced_hash).setValue(hash);
+  ctx.sheet.getRange(ctx.rowNum, ctx.col.last_synced_hash).setValue(hash);
   return true;
 }
 
@@ -115,7 +126,8 @@ function applyDashboardEdit_(req) {
     if (value === '') cell.clearContent();
     else cell.setValue(value);
   }
-  return { ok: true, fb_id: id, status: plan.writes.status, severity: plan.writes.severity || current.severity, row: rowNum };
+  return { ok: true, fb_id: id, status: plan.writes.status, severity: plan.writes.severity || current.severity, row: rowNum,
+    ctx: { sheet, col, rowNum, width } };
 }
 
 /**
