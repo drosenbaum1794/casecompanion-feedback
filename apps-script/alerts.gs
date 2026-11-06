@@ -134,15 +134,22 @@ function checkTagger_(run) {
   sendOwnerAlertOnce_('TAGGER_STALL', '[Feedback pipeline] Tagging task may have stopped', msg);
 }
 
-/** Emails the owner if a sync triggered by the timer fails, at most once an hour. */
+/**
+ * Emails the owner when a timer sync fails. The same error repeats at most
+ * once an hour; a different error always gets through, so one failure can't
+ * hide the next.
+ */
 function alertOnFailure_(run) {
   if (!run.errors.length || run.trigger !== 'timer') return;
   const props = PropertiesService.getScriptProperties();
+  const signature = sha256Hex_(run.errors.map((e) => e.replace(/\d+/g, '#')).join('|'));
   const last = Number(props.getProperty('LAST_FAILURE_ALERT_MS') || 0);
-  if (Date.now() - last < CONFIG.FAILURE_ALERT_MINUTES * 60000) return;
+  const sameError = signature === props.getProperty('LAST_FAILURE_SIGNATURE');
+  if (sameError && Date.now() - last < CONFIG.FAILURE_ALERT_MINUTES * 60000) return;
   MailApp.sendEmail(Session.getEffectiveUser().getEmail(), '[Feedback pipeline] Sync failed',
     `The 10-minute sync failed at ${run.startedAt}.\n\n${run.errors.join('\n')}\n\nSee the Health tab for details.`);
   props.setProperty('LAST_FAILURE_ALERT_MS', String(Date.now()));
+  props.setProperty('LAST_FAILURE_SIGNATURE', signature);
 }
 
 function sendOwnerAlertOnce_(key, subject, body) {
