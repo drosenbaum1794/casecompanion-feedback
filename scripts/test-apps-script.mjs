@@ -138,9 +138,12 @@ test('a duplicate-id error is never cleared by an edit', () => {
   const p = planEditRow_({ ...tagged, theme: 'Usability', sync_error: 'duplicate id' }, ['theme'], tax, m);
   assert.equal('sync_error' in p.writes, false);
 });
-test('raising severity to Sev1 clears alerted_at so the alert fires', () => {
+test('re-setting Sev1 on an already-alerted row does not re-arm the alert', () => {
   const p = planEditRow_({ ...tagged, severity: 'Sev1', alerted_at: '11/6/2026' }, ['severity'], tax, m);
-  assert.equal(p.writes.alerted_at, '');
+  assert.equal('alerted_at' in p.writes, false);
+});
+test('a row a human raises to Sev1 alerts, because it never alerted before', () => {
+  assert.equal(selectAlertRows_([{ values: { ...tagged, severity: 'Sev1', alerted_at: '', status: 'Corrected' } }])[0].kind, 'Sev1');
 });
 test('a multi-column paste checks every edited field', () => {
   const p = planEditRow_({ ...tagged, theme: 'Nope', severity: 'High' }, ['theme', 'product_area', 'severity'], tax, m);

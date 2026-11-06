@@ -5,7 +5,7 @@
  *   - a tag or status changed                      -> reviewed_by, reviewed_at
  *   - a value outside the taxonomy (pastes skip    -> cell turns red with a note,
  *     dropdown validation)                            sync_error blocks the push
- *   - severity raised to Sev1                      -> alerted_at cleared, so it alerts
+ *   - severity raised to Sev1                      -> alerts on the next sync (alerted_at is empty)
  * Loops over every cell in the edited range, so multi-cell pastes are handled.
  * Script writes do not fire onEdit, so Claude's tags never count as human edits.
  */
@@ -94,7 +94,9 @@ function planEditRow_(current, edited, taxonomy, meta) {
     writes.reviewed_at = meta.now;
   }
 
-  if (edited.includes('severity') && current.severity === 'Sev1' && current.alerted_at) writes.alerted_at = '';
+  // alerted_at is never cleared here. A row a human raises to Sev1 has never
+  // alerted, so it alerts on the next sync anyway; clearing it on every
+  // "set to Sev1" re-sent alerts when a paste or undo put back an existing Sev1.
 
   if (invalid.length) writes.sync_error = `invalid value in ${invalid.join(', ')}`;
   else if (current.sync_error.startsWith('invalid value')) writes.sync_error = '';

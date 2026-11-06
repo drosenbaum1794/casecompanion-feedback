@@ -100,3 +100,12 @@ The first scoring run (`docs/prompt-log.md`, v1) showed the blind labels disagre
 **Segment numbers come from SQL** (`segment_summary`), not from counting in the browser. Its "heavy user" cut is the 75th percentile of monthly queries (512 or more). The memo's first draft used a slightly different percentile method (523 or more); the memo now cites the SQL figures.
 
 **Published with a GitHub Actions workflow,** because GitHub Pages can only serve a repo's root or `docs/` folder directly, not `dashboard/`.
+
+## 2026-11-06: Fixes found by testing
+
+Test scenarios found four real gaps. Each is fixed, unit-tested where the logic is pure, and recorded in `docs/test-results.md`.
+
+1. **Failure emails hid each other** (test 11). The hourly throttle was global, so a second, different failure was suppressed. The throttle now applies only to repeats of the same error.
+2. **An undone typo left a row stuck** (test 6). Undo doesn't fire onEdit, so `sync_error` stayed set on a now-valid row, and it silently stopped syncing. Every sync now re-checks flagged rows.
+3. **Corrected outlived the correction** (test 5). A row edited back to Claude's values stayed Corrected and inflated the override rate (67% shown, 50% true). The edit handler now returns such rows to Pending, and `health()` measures actual value differences.
+4. **Duplicate Sev1 alert** (test 5). Deviates from the scope doc: the edit handler no longer clears `alerted_at` when severity is set to Sev1, because during a paste it can't tell "raised" from "put back". A newly raised Sev1 still alerts, since it never alerted before. Known limit: a row that already sent a "possible Sev1" alert and is then confirmed as Sev1 by a human does not send a second email; the CSM already has it.
