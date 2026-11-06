@@ -44,3 +44,23 @@ The first scoring run (`docs/prompt-log.md`, v1) showed the blind labels disagre
 **Both numbers get reported:** v1 against the original blind labels and against the adjudicated labels. Blind labels stay in `data/eval-labels-blind.csv`.
 
 **Product finding for the rep workflow:** the Eval tab's dropdowns showed value names without definitions, which sit on a separate tab. That likely contributed to the product-area misses, and reps confirming tags would hit the same problem. The My Queue tab should show the definition next to each tag, or the dropdown should carry help text.
+
+## 2026-11-06: Sheet build and Apps Script, Day 1
+
+**Sheet build done through the Sheets connector**, not a setup script: rename to Feedback, `fb_id` in column A, 28 working and system columns, dropdowns fed from the Taxonomy tab, Low confidence in amber, Sev1 in red, frozen through `feedback_text`, the "never sort" note on A1, warning-only protection on original data, and owner-only protection on system columns (hidden), Routing, Health, Taxonomy, and Eval. Eval is hidden now that labeling is done.
+
+**Added columns beyond the scope doc:**
+- `claude_sentiment`, `claude_theme`, `claude_product_area`, `claude_severity` (system, script-only). Claude's original proposal is recorded even when a human already filled a tag, so the override rate can be computed in the sheet, not only in Supabase.
+- `injection_suspected` (system). The security table needs it on the row so the queue and the MCP can surface it.
+
+**Checkbox fix.** A checkbox column stores FALSE in every cell, which makes Sheets treat 1,000 rows as filled, so appended rows would land at row 1001. Checkboxes now stop at the last data row, and the script adds one to each new row when it assigns an ID.
+
+**clasp quirk.** `clasp create --type sheets --parentId X` ignores the parent and makes a new spreadsheet. Running it without `--type` binds correctly. The stray empty spreadsheet was moved to Drive trash.
+
+**OAuth scopes declared up front** in `appsscript.json`, including email and outbound requests that Day 2 needs (Sev1 alerts, Supabase push). Dan approves once instead of twice. Full `spreadsheets` scope rather than `currentonly`, because the Day 2 row-opener web app has no active spreadsheet and must open the sheet by ID.
+
+**Code-side guard added to validation:** Positive feedback must have severity None, and theme Other needs a `suggested_theme`. **Deliberately not enforced in code:** "Sev1 only for Wrong output." Rejecting would delay a possible Sev1 alert, so it goes to a human instead.
+
+**Known limit:** menu items run as whoever clicks them. A rep clicking "Sync now" can't write the protected system columns, so the run fails loudly on the Health tab instead of half-applying. For the demo Dan is the only editor, and the 10-minute trigger runs as Dan. Production would run sync from a service account.
+
+**Logic tests:** `node scripts/test-apps-script.mjs` runs 15 tests on the validation and write-planning functions, including "a human-filled cell is never overwritten" and "a suspected injection forces Low confidence."
