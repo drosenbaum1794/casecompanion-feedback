@@ -228,9 +228,14 @@ async function replaceTaxonomy(rows: unknown, version: unknown) {
 
 Deno.serve(async (req) => {
   if (req.method !== "POST") return reply(405, { error: "POST only" });
-  const expected = Deno.env.get("INGEST_SECRET") ?? "";
-  const given = req.headers.get("x-ingest-secret") ?? "";
+  // Trimmed: a secret pasted into the dashboard can pick up stray whitespace.
+  const expected = (Deno.env.get("INGEST_SECRET") ?? "").trim();
+  const given = (req.headers.get("x-ingest-secret") ?? "").trim();
   if (expected.length < 32 || !sameSecret(given, expected)) {
+    // Server-side log only, so callers learn nothing about the configuration.
+    console.warn(expected.length < 32
+      ? `auth: INGEST_SECRET not configured (length ${expected.length})`
+      : `auth: secret mismatch (given length ${given.length}, expected length ${expected.length})`);
     return reply(401, { error: "missing or wrong x-ingest-secret" });
   }
   let body: Row;
